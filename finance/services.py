@@ -817,3 +817,54 @@ def get_spending_pace(user, budget_limit=None, today=None):
         previous=_running_totals(user, previous_start, previous_end),
         budget_limit=budget_limit,
     )
+
+
+# ---------------------------------------------------------------------------
+# Spending by category, month by month (year view)
+# ---------------------------------------------------------------------------
+
+# Fixed display order (and colour) for expense categories: the order they are
+# declared in, so a category never changes colour between months or years.
+EXPENSE_CATEGORY_ORDER = [c for c in Transaction.Category if c in Transaction.EXPENSE_CATEGORIES]
+
+
+@dataclass
+class CategoryYear:
+    by_month: dict          # {month_start: {category: Decimal}}
+    totals: list[CategoryShare]   # whole period, biggest first
+
+    @property
+    def has_data(self):
+        return bool(self.totals)
+
+
+def get_category_by_month(user, year, today=None):
+    """Expenses per category for each month of `year` up to the current month.
+    One query."""
+    today = today or timezone.localdate()
+    start = datetime.date(year, 1, 1)
+    end = min(datetime.date(year, 12, 31), month_bounds(today)[1])
+    rows = (
+        Transaction.objects.filter(user=user, kind=Transaction.Kind.EXPENSE, date__range=(start, end))
+        .annotate(month=TruncMonth('date')).values('month', 'category')
+        .annotate(total=Sum('amount')).order_by('month', 'category')
+    )
+    by_month, per_category = {}, {}
+    for row in rows:
+        amount = money(row['total'])
+        by_month.setdefault(row['month'], {})[row['category']] = amount
+        per_category[row['category']] = per_category.get(row['category'], ZERO) + amount
+    grand_total = sum(per_category.values(), ZERO)
+    totals = sorted(
+        (
+            CategoryShare(
+                category=category,
+                label=Transaction.Category(category).label,
+                total=total,
+                percent=percent(total, grand_total),
+            )
+            for category, total in per_category.items()
+        ),
+        key=lambda share: (-share.total, EXPENSE_CATEGORY_ORDER.index(share.category)),
+    )
+    return CategoryYear(by_month=by_month, totals=totals)

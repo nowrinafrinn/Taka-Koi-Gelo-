@@ -589,6 +589,34 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--da
 .line-key.line-previous { border-top: 2px solid var(--ink-muted); opacity: 0.55; }
 .mini-goals { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
 
+/* ---------- Year charts: categories and budget ---------- */
+/* Fixed colour per expense category. Every colour is at least 3:1 against the card background in both modes. */
+:root {
+  --cat-food: #2a78d6; --cat-transport: #eb6834; --cat-shopping: #a87400; --cat-education: #14916a;
+  --cat-entertainment: #cc4f82; --cat-bills: #6250d6; --cat-health: #e34948; --cat-other: #8f8b80;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cat-food: #3987e5; --cat-transport: #d95926; --cat-shopping: #c98500; --cat-education: #199e70;
+    --cat-entertainment: #d55181; --cat-bills: #9085e9; --cat-health: #e66767; --cat-other: #8f8b80;
+  }
+}
+.cat-food { fill: var(--cat-food); background: var(--cat-food); }
+.cat-transport { fill: var(--cat-transport); background: var(--cat-transport); }
+.cat-shopping { fill: var(--cat-shopping); background: var(--cat-shopping); }
+.cat-education { fill: var(--cat-education); background: var(--cat-education); }
+.cat-entertainment { fill: var(--cat-entertainment); background: var(--cat-entertainment); }
+.cat-bills { fill: var(--cat-bills); background: var(--cat-bills); }
+.cat-health { fill: var(--cat-health); background: var(--cat-health); }
+.cat-other_expense { fill: var(--cat-other); background: var(--cat-other); }
+.category-row .swatch { vertical-align: -1px; }
+/* Budget = outlined bar: the outline uses muted ink, which passes 3:1 in both modes. */
+.bar-chart .bar-budget { fill: color-mix(in srgb, var(--ink-muted) 18%, transparent); stroke: var(--ink-muted); stroke-width: 1.5; }
+.swatch-budget { background: color-mix(in srgb, var(--ink-muted) 18%, transparent); box-shadow: inset 0 0 0 1.5px var(--ink-muted); }
+.bar-chart .bar-within, .swatch-within { fill: var(--note); background: var(--note); }
+.bar-chart .bar-over, .swatch-over { fill: var(--danger); background: var(--danger); }
+.bar-chart .bar-nobudget, .swatch-nobudget { fill: var(--ink-muted); background: var(--ink-muted); }
+
 /* ---------- Monthly report ---------- */
 .report-groups { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .report-heading { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); margin: 0 0 var(--space-2); }

@@ -154,3 +154,102 @@ def pace_chart(pace):
     if pace.budget_limit:
         chart['budget'] = {'x1': x(0), 'y1': y(0), 'x2': x(pace.days_in_month), 'y2': y(pace.budget_limit)}
     return chart
+
+
+def _column_frame(count, top_value):
+    """Shared layout for the year bar charts: group width, baseline and grid."""
+    group_width = (WIDTH - LEFT - RIGHT) / count
+    grid = [
+        {'y': BASELINE - PLOT_HEIGHT * fraction, 'label': axis_label(top_value * Decimal(str(fraction)))}
+        for fraction in (0, 0.5, 1)
+    ]
+    return group_width, grid
+
+
+def _frame(groups, grid):
+    return {
+        'width': WIDTH,
+        'height': HEIGHT,
+        'left': LEFT,
+        'axis_x': LEFT - 10,
+        'right_edge': WIDTH - RIGHT,
+        'baseline': BASELINE,
+        'label_y': BASELINE + 26,
+        'grid': grid,
+        'groups': groups,
+    }
+
+
+def stacked_category_chart(months, by_month, order):
+    """One stacked bar per month: each segment is an expense category.
+
+    `months` are MonthStat (Jan..Dec), `by_month` {month: {category: amount}},
+    `order` the fixed category order (bottom to top). Segments are separated by
+    a 2px gap so touching colours stay distinguishable.
+    """
+    top_value = nice_ceiling(max([m.expenses for m in months] or [Decimal('0')]))
+    group_width, grid = _column_frame(len(months), top_value)
+    bar_width = min(group_width * 0.5, 30)
+    groups = []
+    for index, m in enumerate(months):
+        center = LEFT + group_width * (index + 0.5)
+        y = BASELINE
+        segments = []
+        for category in order:
+            amount = by_month.get(m.month, {}).get(category)
+            if not amount:
+                continue
+            height = float(amount / top_value) * PLOT_HEIGHT
+            label = category.label
+            segments.append({
+                'category': category.value, 'x': center - bar_width / 2, 'y': y - height,
+                'w': bar_width, 'h': max(height - 2, 1),
+                'title': f'{m.month:%B %Y}: {label} {taka(amount)}',
+            })
+            y -= height
+        groups.append({
+            'center': center, 'label': f'{m.month:%b}', 'segments': segments,
+            'is_future': m.is_future,
+            'title': f'{m.month:%B %Y}: expenses {taka(m.expenses)}' if not m.is_future else f'{m.month:%B %Y}: not started yet',
+        })
+    return _frame(groups, grid)
+
+
+def budget_chart(months):
+    """Budget (grey) next to spent per month. Spending within the limit is
+    green; the part above the limit is red. No budget: spent bar only."""
+    values = [m.expenses for m in months] + [m.budget_limit for m in months if m.budget_limit]
+    top_value = nice_ceiling(max(values or [Decimal('0')]))
+    group_width, grid = _column_frame(len(months), top_value)
+    bar_width = min(group_width * 0.3, 18)
+
+    def height_for(amount):
+        return float(amount / top_value) * PLOT_HEIGHT
+
+    groups = []
+    for index, m in enumerate(months):
+        center = LEFT + group_width * (index + 0.5)
+        group = {'center': center, 'label': f'{m.month:%b}', 'is_future': m.is_future,
+                 'budget': None, 'within': None, 'over': None, 'no_budget': m.budget_limit is None}
+        if not m.is_future:
+            spent_x = center + 1 if m.budget_limit is not None else center - bar_width / 2
+            if m.budget_limit is not None:
+                budget_h = height_for(m.budget_limit)
+                group['budget'] = {'x': center - bar_width - 1, 'y': BASELINE - budget_h, 'w': bar_width, 'h': budget_h,
+                                   'title': f'{m.month:%B %Y} budget: {taka(m.budget_limit)}'}
+                within = min(m.expenses, m.budget_limit)
+                over = max(m.expenses - m.budget_limit, Decimal('0'))
+            else:
+                within, over = m.expenses, Decimal('0')
+            within_h, over_h = height_for(within), height_for(over)
+            spent_title = f'{m.month:%B %Y}: spent {taka(m.expenses)}'
+            if m.budget_limit is None:
+                spent_title += ', no budget set'
+            elif over:
+                spent_title += f', over budget by {taka(over)}'
+            group['within'] = {'x': spent_x, 'y': BASELINE - within_h, 'w': bar_width, 'h': within_h, 'title': spent_title}
+            if over:
+                group['over'] = {'x': spent_x, 'y': BASELINE - within_h - over_h, 'w': bar_width,
+                                 'h': max(over_h - 2, 1), 'title': spent_title}
+        groups.append(group)
+    return _frame(groups, grid)

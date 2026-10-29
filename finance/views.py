@@ -62,9 +62,17 @@ def stats(request):
 
     if view == 'year':
         comparison = services.get_year_comparison(request.user, year, today)
+        category_year = services.get_category_by_month(request.user, year, today)
+        present = {share.category for share in category_year.totals}
         context.update({
             'comparison': comparison,
             'chart': charts.bar_chart(comparison.months),
+            'category_year': category_year,
+            'category_chart': charts.stacked_category_chart(
+                comparison.months, category_year.by_month, services.EXPENSE_CATEGORY_ORDER),
+            # Legend in the same fixed order as the stacks, only categories that appear.
+            'category_legend': [c for c in services.EXPENSE_CATEGORY_ORDER if c in present],
+            'budget_chart': charts.budget_chart(comparison.months),
         })
     else:
         report = services.get_month_report(request.user, year, month, today)

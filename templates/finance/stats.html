@@ -226,6 +226,85 @@
           <p class="muted small" style="margin-top: var(--space-2)">Hover or tap a month for exact figures. Surplus means recorded income was higher than recorded expenses; it is not the same as money saved.</p>
         </section>
 
+        <section class="panel" aria-labelledby="categories-year-title">
+          <div class="panel-head">
+            <h2 id="categories-year-title">Where it went, month by month</h2>
+          </div>
+          {% if category_year.has_data %}
+            <ul class="chart-legend" aria-hidden="true">
+              {% for c in category_legend %}<li><span class="swatch cat-{{ c.value }}"></span>{{ c.label }}</li>{% endfor %}
+            </ul>
+            <div class="chart-wrap">
+              <svg class="bar-chart" viewBox="0 0 {{ category_chart.width }} {{ category_chart.height }}" role="img"
+                   aria-label="Stacked bars of each month's expenses split by category for {{ c.year }}. Category totals are listed below.">
+                {% for line in category_chart.grid %}
+                  <line class="grid-line" x1="{{ category_chart.left }}" x2="{{ category_chart.right_edge }}" y1="{{ line.y }}" y2="{{ line.y }}"/>
+                  <text class="axis-label" x="{{ category_chart.axis_x }}" y="{{ line.y }}" text-anchor="end" dominant-baseline="middle">{{ line.label }}</text>
+                {% endfor %}
+                {% for g in category_chart.groups %}
+                  <g class="month{% if g.is_future %} is-future{% endif %}">
+                    <title>{{ g.title }}</title>
+                    {% for s in g.segments %}
+                      <rect class="cat-{{ s.category }}" x="{{ s.x }}" y="{{ s.y }}" width="{{ s.w }}" height="{{ s.h }}" rx="2"><title>{{ s.title }}</title></rect>
+                    {% endfor %}
+                    <text class="month-label" x="{{ g.center }}" y="{{ category_chart.label_y }}" text-anchor="middle">{{ g.label }}</text>
+                  </g>
+                {% endfor %}
+              </svg>
+            </div>
+            <h3 class="report-heading" style="margin-top: var(--space-4)">{{ c.year }} by category</h3>
+            <ul class="category-bars">
+              {% for share in category_year.totals %}
+                <li>
+                  <div class="category-row">
+                    <span><span class="swatch cat-{{ share.category }}" aria-hidden="true"></span> {{ share.label }}</span>
+                    <span><span class="num">{{ share.total|taka }}</span> <span class="muted small">· {{ share.percent }}%</span></span>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No expenses recorded in {{ c.year }} yet.</p>
+          {% endif %}
+        </section>
+
+        <section class="panel" aria-labelledby="budget-year-title">
+          <div class="panel-head">
+            <h2 id="budget-year-title">Budget vs actual</h2>
+          </div>
+          {% if c.budgeted_months %}
+            <ul class="chart-legend" aria-hidden="true">
+              <li><span class="swatch swatch-budget"></span>Budget</li>
+              <li><span class="swatch swatch-within"></span>Spent, within budget</li>
+              <li><span class="swatch swatch-over"></span>Over budget</li>
+              <li><span class="swatch swatch-nobudget"></span>Spent, no budget set</li>
+            </ul>
+            <div class="chart-wrap">
+              <svg class="bar-chart" viewBox="0 0 {{ budget_chart.width }} {{ budget_chart.height }}" role="img"
+                   aria-label="Each month's budget next to what was spent in {{ c.year }}; the part above the budget is shown separately. The Budget column of the table below has the same figures.">
+                {% for line in budget_chart.grid %}
+                  <line class="grid-line" x1="{{ budget_chart.left }}" x2="{{ budget_chart.right_edge }}" y1="{{ line.y }}" y2="{{ line.y }}"/>
+                  <text class="axis-label" x="{{ budget_chart.axis_x }}" y="{{ line.y }}" text-anchor="end" dominant-baseline="middle">{{ line.label }}</text>
+                {% endfor %}
+                {% for g in budget_chart.groups %}
+                  <g class="month{% if g.is_future %} is-future{% endif %}">
+                    {% if g.budget %}<rect class="bar-budget" x="{{ g.budget.x }}" y="{{ g.budget.y }}" width="{{ g.budget.w }}" height="{{ g.budget.h }}" rx="3"><title>{{ g.budget.title }}</title></rect>{% endif %}
+                    {% if g.within %}<rect class="{% if g.no_budget %}bar-nobudget{% else %}bar-within{% endif %}" x="{{ g.within.x }}" y="{{ g.within.y }}" width="{{ g.within.w }}" height="{{ g.within.h }}" rx="3"><title>{{ g.within.title }}</title></rect>{% endif %}
+                    {% if g.over %}<rect class="bar-over" x="{{ g.over.x }}" y="{{ g.over.y }}" width="{{ g.over.w }}" height="{{ g.over.h }}" rx="3"><title>{{ g.over.title }}</title></rect>{% endif %}
+                    <text class="month-label" x="{{ g.center }}" y="{{ budget_chart.label_y }}" text-anchor="middle">{{ g.label }}</text>
+                  </g>
+                {% endfor %}
+              </svg>
+            </div>
+            <p class="muted small" style="margin-top: var(--space-2)">
+              {{ c.over_budget_months }} of {{ c.budgeted_months }} month{{ c.budgeted_months|pluralize }} with a budget went over.
+              Months without a budget show spending only.
+            </p>
+          {% else %}
+            <p class="muted">No budgets set in {{ c.year }}. <a href="{% url 'finance:budget_edit' %}">Set this month’s budget</a> to compare it with what you spend.</p>
+          {% endif %}
+        </section>
+
         <section class="panel" aria-labelledby="table-title">
           <h2 id="table-title">{{ c.year }} by month</h2>
           <div class="table-wrap">
