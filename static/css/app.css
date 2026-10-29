@@ -312,7 +312,23 @@ a:hover { color: var(--note-strong); }
   display: grid; place-items: center;
   overflow: hidden;
 }
-.wallet-stage svg { width: min(70%, 260px); height: auto; }
+.wallet-stage > svg { width: min(70%, 260px); height: auto; transition: opacity 300ms var(--ease); }
+
+/* 3D layer: fades in over the SVG once the first frame is drawn. */
+.wallet-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; transition: opacity 400ms var(--ease);
+  touch-action: pan-y;  /* never block page scrolling on phones */
+}
+.wallet-stage.is-3d .wallet-canvas { opacity: 1; }
+.wallet-stage.is-3d > svg { opacity: 0; }
+
+.wallet-status {
+  position: absolute; left: var(--space-4); bottom: var(--space-3); margin: 0;
+  font-size: 0.8rem; color: var(--ink-muted);
+  display: none;
+}
+.wallet-stage.is-loading .wallet-status { display: block; }
 
 @media (min-width: 720px) {
   .hero { grid-template-columns: 1.1fr 1fr; }

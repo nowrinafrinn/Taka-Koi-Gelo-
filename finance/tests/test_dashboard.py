@@ -49,6 +49,36 @@ class DashboardViewTests(TestCase):
         self.assertContains(response, 'budget-over')
 
 
+class WalletAssetsTests(TestCase):
+    """The 3D wallet is an enhancement: the page must work without it."""
+
+    def setUp(self):
+        self.client.force_login(User.objects.create_user('mitu', password='x'))
+
+    def test_dashboard_loads_pinned_three_and_wallet_module(self):
+        response = self.client.get(reverse('finance:dashboard'))
+        self.assertContains(response, '<script type="importmap">')
+        self.assertContains(response, '/static/vendor/three-0.186.1/three.module.js')
+        self.assertContains(response, '<script type="module" src="/static/js/wallet.js">')
+
+    def test_static_fallback_and_figures_are_in_the_html(self):
+        response = self.client.get(reverse('finance:dashboard'))
+        self.assertContains(response, 'id="wallet-stage"')
+        self.assertContains(response, '<svg viewBox="0 0 260 200"')   # fallback illustration
+        self.assertContains(response, 'Available balance')              # figures do not need JS
+
+    def test_vendored_files_exist(self):
+        from django.contrib.staticfiles import finders
+        for path in [
+            'vendor/three-0.186.1/three.module.js',
+            'vendor/three-0.186.1/three.core.js',
+            'vendor/three-0.186.1/addons/environments/RoomEnvironment.js',
+            'js/wallet.js',
+        ]:
+            with self.subTest(path=path):
+                self.assertIsNotNone(finders.find(path))
+
+
 class BudgetViewTests(TestCase):
     url = reverse('finance:budget_edit')
 

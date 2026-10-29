@@ -1,7 +1,20 @@
 {% extends 'base.html' %}
-{% load money %}
+{% load money static %}
 
 {% block title %}Dashboard · Taka Koi Gelo?{% endblock %}
+
+{% block scripts %}
+  {# Lets wallet.js write `import 'three'` while the file is served from our own static folder. #}
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "{% static 'vendor/three-0.186.1/three.module.js' %}",
+        "three/addons/": "{% static 'vendor/three-0.186.1/addons/' %}"
+      }
+    }
+  </script>
+  <script type="module" src="{% static 'js/wallet.js' %}"></script>
+{% endblock %}
 
 {% block content %}
   <div class="page-head">
@@ -40,6 +53,7 @@
 
     <div class="wallet-stage" id="wallet-stage">
       {% include 'partials/wallet_illustration.html' %}
+      <p class="wallet-status" aria-hidden="true">Loading 3D wallet…</p>
     </div>
   </section>
 
