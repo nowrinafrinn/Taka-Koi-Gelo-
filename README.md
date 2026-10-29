@@ -42,6 +42,7 @@ about the numbers, and a little playful.
 - **Monthly budget:** limit, amount used, remaining (negative when over), and warnings at 80% and when over.
 - **Money insights (`/stats/`):**
   - **Month view:** income, expenses, surplus/deficit, the budget, and spending by category for any month, with previous/next links.
+  - **Monthly report:** rule-based insights in two separate groups. **Spending:** the % change from last month, shown only when last month had expenses, and worded "so far" for a month in progress; the largest category, including ties. **Savings goals:** amount contributed, share of income, and the change from last month.
   - **Year view:** January–December compared in a server-drawn SVG bar chart, plus total income and expenses, the year's net, average monthly expenses, and the highest-spending and highest-surplus months.
   - **Surplus/deficit** = recorded income − recorded expenses. A surplus isn't presented as confirmed savings. Months with expenses but **no recorded income** get no surplus/deficit verdict. Over budget stays a separate flag.
   - A table doubles as the accessible version of the chart. On phones the chart scrolls within its card.
@@ -210,7 +211,7 @@ Open <http://127.0.0.1:8010>. On macOS or Linux, use `.venv/bin/python`.
 .venv\Scripts\python.exe -m coverage report
 ```
 
-**225 tests, 99% line coverage.** The only uncovered lines are
+**251 tests, 99% line coverage.** The only uncovered lines are
 production-only settings, which `check --deploy` verifies. The tests cover:
 
 - **Calculations:** empty data, zero values, negative balance, overspending, Decimal precision (1,000 × ৳0.10 = ৳100.00), and month boundaries including leap years and the Dhaka-midnight case.

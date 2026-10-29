@@ -596,3 +596,139 @@ def contributions_by_month(user, start, end):
         .annotate(total=Sum('amount')).order_by('month')
     )
     return {row['month']: money(row['total']) for row in rows}
+
+
+# ---------------------------------------------------------------------------
+# Monthly spending report (rule-based insights)
+# ---------------------------------------------------------------------------
+# Each insight is a plain statement backed by recorded data. An insight is
+# left out when its data is missing (e.g. no expenses last month means no
+# "% more than last month"), so there is never a division by zero or a guess.
+# Spending and savings insights are kept in separate lists and never mixed.
+
+
+@dataclass
+class Insight:
+    text: str
+    # Dot colour only: spending 'up' / 'down' / 'same', 'saving' for goal contributions, else 'neutral'.
+    tone: str = 'neutral'
+
+
+@dataclass
+class SpendingReport:
+    spending: list[Insight]
+    savings: list[Insight]
+
+    @property
+    def is_empty(self):
+        return not (self.spending or self.savings)
+
+
+def change_percent(current, previous):
+    """Whole-number % change from previous to current, or None if previous is 0."""
+    if not previous:
+        return None
+    return ((current - previous) * 100 / previous).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+
+def _month_label(day, reference):
+    """'September', or 'December 2025' when the year differs from the reference month."""
+    return f'{day:%B}' if day.year == reference.year else f'{day:%B %Y}'
+
+
+def _spending_insights(stat, categories, previous_start, previous_expenses):
+    this = _month_label(stat.month, stat.month)
+    last = _month_label(previous_start, stat.month)
+    so_far = ' so far' if stat.is_current else ''
+    insights = []
+
+    if not stat.expenses:
+        insights.append(Insight(f'No expenses were recorded in {this}{so_far}.'))
+        return insights
+
+    change = change_percent(stat.expenses, previous_expenses)
+    figures = f'({taka(stat.expenses)} vs {taka(previous_expenses)})'
+    if change is None:
+        insights.append(Insight(f'No expenses were recorded in {last}, so there is nothing to compare {this} with.'))
+    elif stat.expenses > previous_expenses:
+        if change >= 1:
+            insights.append(Insight(f'You spent {change}% more in {this}{so_far} than in {last} {figures}.', 'up'))
+        else:
+            insights.append(Insight(f'Your recorded expenses in {this}{so_far} were about the same as in {last}, '
+                                    f'slightly higher {figures}.', 'same'))
+    elif stat.expenses < previous_expenses:
+        if change <= -1 and stat.is_current:
+            # A partial month naturally looks lower than a whole one; say so.
+            insights.append(Insight(f'So far in {this}, your recorded expenses are {-change}% lower than in {last} '
+                                    f'{figures}. The month isn’t over yet.', 'down'))
+        elif change <= -1:
+            insights.append(Insight(f'Your recorded expenses decreased by {-change}% compared with {last} {figures}.',
+                                    'down'))
+        else:
+            insights.append(Insight(f'Your recorded expenses in {this}{so_far} were about the same as in {last}, '
+                                    f'slightly lower {figures}.', 'same'))
+    else:
+        insights.append(Insight(f'You spent exactly the same in {this}{so_far} as in {last} ({taka(stat.expenses)}).',
+                                'same'))
+
+    if categories:
+        top_total = categories[0].total
+        leaders = [c for c in categories if c.total == top_total]
+        if len(leaders) == 1:
+            top = leaders[0]
+            insights.append(Insight(f'{top.label} was your largest spending category in {this}{so_far}: '
+                                    f'{taka(top.total)} ({top.percent}% of expenses).'))
+        else:
+            names = ' and '.join(c.label for c in leaders) if len(leaders) == 2 else \
+                ', '.join(c.label for c in leaders[:-1]) + f' and {leaders[-1].label}'
+            insights.append(Insight(f'{names} were tied as your largest spending categories in {this}{so_far}, '
+                                    f'at {taka(top_total)} each.'))
+    return insights
+
+
+def _savings_insights(stat, previous_start, previous_contributions):
+    this = _month_label(stat.month, stat.month)
+    last = _month_label(previous_start, stat.month)
+    so_far = ' so far' if stat.is_current else ''
+    current = stat.contributions
+    insights = []
+
+    if current:
+        text = f'You contributed {taka(current)} towards your savings goals in {this}{so_far}'
+        if stat.savings_rate is not None:
+            text += f', {stat.savings_rate}% of recorded income.'
+        else:
+            text += '. There was no recorded income to compare it with.'
+        insights.append(Insight(text, 'saving'))
+        if previous_contributions:
+            difference = current - previous_contributions
+            if difference > 0:
+                insights.append(Insight(f'That is {taka(difference)} more than you contributed in {last}.', 'saving'))
+            elif difference < 0:
+                insights.append(Insight(f'That is {taka(-difference)} less than you contributed in {last}.'))
+            else:
+                insights.append(Insight(f'That is the same amount you contributed in {last}.'))
+        else:
+            insights.append(Insight(f'You made no goal contributions in {last}.'))
+    elif previous_contributions:
+        insights.append(Insight(f'You made no goal contributions in {this}{so_far}; '
+                                f'in {last} you contributed {taka(previous_contributions)}.'))
+    return insights
+
+
+def get_spending_report(user, report):
+    """Insights for the month in `report` (a MonthReport). Two extra queries:
+    last month's expenses and last month's goal contributions."""
+    stat = report.stat
+    previous_start = add_months(stat.month, -1)
+    _, previous_end = month_bounds(previous_start)
+    previous_expenses = money(
+        Transaction.objects.filter(
+            user=user, kind=Transaction.Kind.EXPENSE, date__range=(previous_start, previous_end),
+        ).aggregate(total=Sum('amount'))['total']
+    )
+    previous_contributions = contributions_between(user, previous_start, previous_end)
+    return SpendingReport(
+        spending=_spending_insights(stat, report.categories, previous_start, previous_expenses),
+        savings=_savings_insights(stat, previous_start, previous_contributions),
+    )

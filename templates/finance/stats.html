@@ -77,6 +77,30 @@
           {% endif %}
         </section>
 
+        {% if not spending_report.is_empty %}
+          <section class="panel report" aria-labelledby="report-title">
+            <h2 id="report-title">{{ s.month|date:"F" }} report <span class="muted" lang="bn">· মাসের হিসাব</span></h2>
+            <div class="report-groups">
+              {% if spending_report.spending %}
+                <div>
+                  <h3 class="report-heading">Spending</h3>
+                  <ul class="insights">
+                    {% for i in spending_report.spending %}<li class="tone-{{ i.tone }}"><span>{{ i.text }}</span></li>{% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+              {% if spending_report.savings %}
+                <div>
+                  <h3 class="report-heading">Savings goals</h3>
+                  <ul class="insights">
+                    {% for i in spending_report.savings %}<li class="tone-{{ i.tone }}"><span>{{ i.text }}</span></li>{% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+            </div>
+          </section>
+        {% endif %}
+
         <section class="panel" aria-labelledby="month-categories">
           <div class="panel-head">
             <h2 id="month-categories">Where it went</h2>

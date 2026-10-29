@@ -574,6 +574,14 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--da
 .period-head .period-step:last-child { justify-self: end; }
 .stat-value.muted { font-size: 1.15rem; color: var(--ink-muted); }
 
+/* ---------- Monthly report ---------- */
+.report-groups { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.report-heading { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); margin: 0 0 var(--space-2); }
+.insights li.tone-up::before { background: var(--spend); }
+.insights li.tone-down::before { background: var(--note); }
+.insights li.tone-same::before, .insights li.tone-neutral::before { background: var(--ink-muted); box-shadow: none; }
+.insights li.tone-saving::before { background: var(--coin); }
+
 /* ---------- Savings goals ---------- */
 .goal-section { margin-bottom: var(--space-5); }
 .section-title { font-size: 1rem; color: var(--ink-muted); margin-bottom: var(--space-3); }

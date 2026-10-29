@@ -65,6 +65,7 @@ def stats(request):
         following = services.add_months(report.start, 1)
         context.update({
             'report': report,
+            'spending_report': services.get_spending_report(request.user, report),
             'previous': previous,
             'following': following if following <= today.replace(day=1) else None,
         })
