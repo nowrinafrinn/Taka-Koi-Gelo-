@@ -78,9 +78,16 @@ def stats(request):
         report = services.get_month_report(request.user, year, month, today)
         previous = services.add_months(report.start, -1)
         following = services.add_months(report.start, 1)
+        daily = services.get_daily_spending(request.user, year, month, today)
         context.update({
             'report': report,
             'spending_report': services.get_spending_report(request.user, report),
+            # Bars by default; the switch is a plain link, so it works without JavaScript.
+            'daily_mode': 'calendar' if request.GET.get('daily') == 'calendar' else 'bars',
+            'daily': daily,
+            'daily_chart': charts.daily_chart(daily),
+            'calendar_weeks': services.calendar_weeks(daily.days),
+            'payment_methods': services.get_payment_methods(request.user, report.start, report.end),
             'previous': previous,
             'following': following if following <= today.replace(day=1) else None,
         })

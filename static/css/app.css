@@ -617,6 +617,39 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--da
 .bar-chart .bar-over, .swatch-over { fill: var(--danger); background: var(--danger); }
 .bar-chart .bar-nobudget, .swatch-nobudget { fill: var(--ink-muted); background: var(--ink-muted); }
 
+/* ---------- Month view: daily spending, calendar, payment methods ---------- */
+:root {
+  /* Calendar shading: none, then four amber steps; text colour picked per step for at least 4.5:1. */
+  --lvl-1: #f7e3b5; --lvl-2: #eec46b; --lvl-3: #c9861f; --lvl-4: #8a5a0f;
+  --lvl-ink-light: #4a3305; --lvl-ink-dark: #fff6e3; --lvl-3-ink: #2a1d03;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --lvl-1: #3d3418; --lvl-2: #6b5418; --lvl-3: #bf8726; --lvl-4: #e7b04a; --lvl-ink-light: #fff6e3; --lvl-ink-dark: #2a1d03; --lvl-3-ink: #2a1d03; }
+}
+.segmented-sm a { min-height: 44px; padding: 0 var(--space-3); font-size: 0.9rem; }
+.daily-chart .bar-day { fill: color-mix(in srgb, var(--spend) 55%, var(--surface)); }
+.daily-chart .bar-day-max { fill: var(--spend); }
+.daily-chart .day:hover .hit { fill: color-mix(in srgb, var(--ink) 5%, transparent); }
+.calendar { display: grid; gap: 4px; max-width: 620px; }   /* compact on wide screens */
+.calendar-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.calendar-head span { text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--ink-muted); }
+.calendar-cell {
+  aspect-ratio: 1 / 0.85; min-height: 44px; border-radius: 8px; padding: 4px 6px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  background: var(--surface-2); color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.calendar-cell.is-blank { background: transparent; }
+.calendar-cell.is-future { background: transparent; box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-muted); }
+.calendar-day { font-size: 0.8rem; font-weight: 600; }
+.calendar-amount { font-size: 0.72rem; align-self: flex-end; }
+.calendar-cell.level-1, .swatch.level-1 { background: var(--lvl-1); color: var(--lvl-ink-light); }
+.calendar-cell.level-2, .swatch.level-2 { background: var(--lvl-2); color: var(--lvl-ink-light); }
+.calendar-cell.level-3, .swatch.level-3 { background: var(--lvl-3); color: var(--lvl-3-ink); }   /* dark text: 5.4:1 light, 5.3:1 dark */
+.calendar-cell.level-4, .swatch.level-4 { background: var(--lvl-4); color: var(--lvl-ink-dark); }
+.swatch.level-0 { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.calendar-legend { margin-top: var(--space-3); align-items: center; }
+.bar-pay > span { background: var(--note); }
+
 /* ---------- Monthly report ---------- */
 .report-groups { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .report-heading { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); margin: 0 0 var(--space-2); }

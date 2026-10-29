@@ -253,3 +253,33 @@ def budget_chart(months):
                                  'h': max(over_h - 2, 1), 'title': spent_title}
         groups.append(group)
     return _frame(groups, grid)
+
+
+def daily_chart(daily):
+    """One bar per day of the month. The biggest day is highlighted; days that
+    haven't happened yet get no bar."""
+    days = daily.days
+    top_value = nice_ceiling(max([d.amount for d in days] or [Decimal('0')]))
+    group_width, grid = _column_frame(len(days), top_value)
+    bar_width = group_width * 0.62
+    biggest = daily.biggest
+    last = len(days)
+    labelled = {1, 5, 10, 15, 20, 25, last}
+    groups = []
+    for index, d in enumerate(days):
+        center = LEFT + group_width * (index + 0.5)
+        height = float(d.amount / top_value) * PLOT_HEIGHT if d.amount else 0
+        if d.is_future:
+            title = f'{d.date.day} {d.date:%B}: hasn’t happened yet'
+        elif d.amount:
+            title = f'{d.date.day} {d.date:%B}: {taka(d.amount)} spent'
+        else:
+            title = f'{d.date.day} {d.date:%B}: no expenses'
+        groups.append({
+            'date': d.date, 'center': center, 'label': d.date.day if d.date.day in labelled else '',
+            'x': center - bar_width / 2, 'y': BASELINE - height, 'w': bar_width, 'h': height,
+            'is_biggest': biggest is not None and d.date == biggest.date,
+            'is_future': d.is_future, 'title': title,
+            'hit': {'x': center - group_width / 2, 'w': group_width},
+        })
+    return _frame(groups, grid)

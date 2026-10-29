@@ -15,6 +15,7 @@
 
   <form method="get" class="panel period-form" aria-label="Choose period">
     <input type="hidden" name="view" value="{{ view }}">
+    {% if view == 'month' and daily_mode == 'calendar' %}<input type="hidden" name="daily" value="calendar">{% endif %}
     <label>
       <span>Year</span>
       <select name="year">
@@ -39,10 +40,10 @@
   {% if view == 'month' %}
     {% with s=report.stat %}
       <div class="period-head">
-        <a class="period-step" href="?view=month&amp;year={{ previous.year }}&amp;month={{ previous.month }}">← {{ previous|date:"M Y" }}</a>
+        <a class="period-step" href="?view=month&amp;year={{ previous.year }}&amp;month={{ previous.month }}{% if daily_mode == 'calendar' %}&amp;daily=calendar{% endif %}">← {{ previous|date:"M Y" }}</a>
         <h2>{{ s.month|date:"F Y" }}{% if s.is_current %} <span class="pill">So far</span>{% endif %}</h2>
         {% if following %}
-          <a class="period-step" href="?view=month&amp;year={{ following.year }}&amp;month={{ following.month }}">{{ following|date:"M Y" }} →</a>
+          <a class="period-step" href="?view=month&amp;year={{ following.year }}&amp;month={{ following.month }}{% if daily_mode == 'calendar' %}&amp;daily=calendar{% endif %}">{{ following|date:"M Y" }} →</a>
         {% else %}<span></span>{% endif %}
       </div>
 
@@ -100,6 +101,87 @@
             </div>
           </section>
         {% endif %}
+
+        <section class="panel" aria-labelledby="daily-title">
+          <div class="panel-head">
+            <h2 id="daily-title">Daily spending</h2>
+            {# Plain links: the choice is kept in the URL, works without JavaScript. #}
+            <nav class="segmented segmented-sm" aria-label="Daily view">
+              <a href="?view=month&amp;year={{ year }}&amp;month={{ month }}" {% if daily_mode == 'bars' %}aria-current="page"{% endif %}>Bars</a>
+              <a href="?view=month&amp;year={{ year }}&amp;month={{ month }}&amp;daily=calendar" {% if daily_mode == 'calendar' %}aria-current="page"{% endif %}>Calendar</a>
+            </nav>
+          </div>
+
+          {% if daily_mode == 'calendar' %}
+            <div class="calendar" role="table" aria-label="Spending calendar for {{ s.month|date:'F Y' }}">
+              <div class="calendar-row calendar-head" role="row">
+                <span role="columnheader">Sun</span><span role="columnheader">Mon</span><span role="columnheader">Tue</span><span role="columnheader">Wed</span><span role="columnheader">Thu</span><span role="columnheader">Fri</span><span role="columnheader">Sat</span>
+              </div>
+              {% for week in calendar_weeks %}
+                <div class="calendar-row" role="row">
+                  {% for d in week %}
+                    {% if d is None %}<span role="cell" class="calendar-cell is-blank"></span>
+                    {% else %}
+                      <span role="cell" class="calendar-cell level-{{ d.level }}{% if d.is_future %} is-future{% endif %}"
+                            title="{{ d.date|date:'j F' }}: {% if d.is_future %}hasn’t happened yet{% elif d.amount %}{{ d.amount|taka }} spent{% else %}no expenses{% endif %}">
+                        <span class="calendar-day">{{ d.date.day }}</span>
+                        {% if d.amount %}<span class="calendar-amount">{{ d.amount|floatformat:0 }}</span>{% endif %}
+                        <span class="visually-hidden">{% if d.is_future %}, hasn’t happened yet{% elif d.amount %}, {{ d.amount|taka }} spent{% else %}, no expenses{% endif %}</span>
+                      </span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              {% endfor %}
+            </div>
+            <ul class="chart-legend calendar-legend" aria-hidden="true">
+              <li>Less</li>
+              <li><span class="swatch level-0"></span></li><li><span class="swatch level-1"></span></li>
+              <li><span class="swatch level-2"></span></li><li><span class="swatch level-3"></span></li>
+              <li><span class="swatch level-4"></span></li><li>More</li>
+            </ul>
+          {% else %}
+            <div class="chart-wrap">
+              <svg class="bar-chart daily-chart" viewBox="0 0 {{ daily_chart.width }} {{ daily_chart.height }}" role="img"
+                   aria-label="Bars of spending for each day of {{ s.month|date:'F Y' }}. Switch to Calendar for a day-by-day grid with the same figures.">
+                {% for line in daily_chart.grid %}
+                  <line class="grid-line" x1="{{ daily_chart.left }}" x2="{{ daily_chart.right_edge }}" y1="{{ line.y }}" y2="{{ line.y }}"/>
+                  <text class="axis-label" x="{{ daily_chart.axis_x }}" y="{{ line.y }}" text-anchor="end" dominant-baseline="middle">{{ line.label }}</text>
+                {% endfor %}
+                {% for g in daily_chart.groups %}
+                  <g class="day{% if g.is_future %} is-future{% endif %}">
+                    <title>{{ g.title }}</title>
+                    <rect class="hit" x="{{ g.hit.x }}" y="0" width="{{ g.hit.w }}" height="{{ daily_chart.height }}" fill="transparent"/>
+                    {% if g.h %}<rect class="{% if g.is_biggest %}bar-day-max{% else %}bar-day{% endif %}" x="{{ g.x }}" y="{{ g.y }}" width="{{ g.w }}" height="{{ g.h }}" rx="2"/>{% endif %}
+                    {% if g.label %}<text class="month-label" x="{{ g.center }}" y="{{ daily_chart.label_y }}" text-anchor="middle">{{ g.label }}</text>{% endif %}
+                  </g>
+                {% endfor %}
+              </svg>
+            </div>
+          {% endif %}
+          <p class="small muted" style="margin-top: var(--space-2)">
+            {% if daily.biggest %}Biggest day: {{ daily.biggest.date|date:"l j F" }}, {{ daily.biggest.amount|taka }}.{% else %}No expenses recorded this month.{% endif %}
+            {{ daily.no_spend_days }} no-spend day{{ daily.no_spend_days|pluralize }}{% if s.is_current %} so far{% endif %}.
+          </p>
+        </section>
+
+        <section class="panel" aria-labelledby="payment-title">
+          <h2 id="payment-title">How you paid</h2>
+          {% if payment_methods %}
+            <ul class="category-bars">
+              {% for p in payment_methods %}
+                <li>
+                  <div class="category-row">
+                    <span>{{ p.label }}</span>
+                    <span><span class="num">{{ p.total|taka }}</span> <span class="muted small">· {{ p.percent }}%</span></span>
+                  </div>
+                  <div class="bar bar-pay" aria-hidden="true"><span style="width: {{ p.percent|stringformat:'s' }}%"></span></div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No expenses recorded in this month.</p>
+          {% endif %}
+        </section>
 
         <section class="panel" aria-labelledby="month-categories">
           <div class="panel-head">

@@ -868,3 +868,88 @@ def get_category_by_month(user, year, today=None):
         key=lambda share: (-share.total, EXPENSE_CATEGORY_ORDER.index(share.category)),
     )
     return CategoryYear(by_month=by_month, totals=totals)
+
+
+# ---------------------------------------------------------------------------
+# Daily spending and payment methods (month view)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DaySpend:
+    date: datetime.date
+    amount: Decimal
+    is_future: bool
+    level: int = 0          # 0 = nothing, 1-4 = share of the month's biggest day (calendar shading)
+
+
+@dataclass
+class DailySpending:
+    days: list[DaySpend]
+
+    @property
+    def biggest(self):
+        """The day with the most spending (earliest on a tie), or None."""
+        spent = [d for d in self.days if d.amount > 0]
+        return max(spent, key=lambda d: d.amount) if spent else None
+
+    @property
+    def no_spend_days(self):
+        """Days that have started and had no recorded expenses."""
+        return sum(1 for d in self.days if not d.is_future and not d.amount)
+
+    @property
+    def has_data(self):
+        return any(d.amount for d in self.days)
+
+
+def _shade_level(amount, biggest):
+    """1-4 by quarter of the month's biggest day, so shading is relative to this month."""
+    if not amount:
+        return 0
+    share = amount / biggest
+    return 1 if share <= Decimal('0.25') else 2 if share <= Decimal('0.5') else 3 if share <= Decimal('0.75') else 4
+
+
+def get_daily_spending(user, year, month, today=None):
+    """Expenses for every day of the month. One query."""
+    today = today or timezone.localdate()
+    start, end = month_bounds(datetime.date(year, month, 1))
+    per_day = dict(
+        Transaction.objects.filter(user=user, kind=Transaction.Kind.EXPENSE, date__range=(start, end))
+        .values('date').annotate(total=Sum('amount')).values_list('date', 'total')
+    )
+    days = [
+        DaySpend(date=start + datetime.timedelta(days=i), amount=money(per_day.get(start + datetime.timedelta(days=i))),
+                 is_future=start + datetime.timedelta(days=i) > today)
+        for i in range(end.day)
+    ]
+    biggest = max((d.amount for d in days), default=ZERO)
+    for d in days:
+        d.level = _shade_level(d.amount, biggest)
+    return DailySpending(days=days)
+
+
+def calendar_weeks(days):
+    """Rows of 7 cells (Sunday first, so Friday-Saturday sit together at the
+    end); None pads the first and last week."""
+    lead = (days[0].date.weekday() + 1) % 7      # Python: Monday=0 ... Sunday=6
+    cells = [None] * lead + list(days)
+    cells += [None] * (-len(cells) % 7)
+    return [cells[i:i + 7] for i in range(0, len(cells), 7)]
+
+
+def get_payment_methods(user, start, end):
+    """Expenses by payment method for the period, biggest first. One query."""
+    rows = (
+        Transaction.objects.filter(user=user, kind=Transaction.Kind.EXPENSE, date__range=(start, end))
+        .values('payment_method').annotate(total=Sum('amount')).order_by('-total', 'payment_method')
+    )
+    rows = [(row['payment_method'], money(row['total'])) for row in rows]
+    grand_total = sum((total for _, total in rows), ZERO)
+    labels = dict(Transaction.PaymentMethod.choices)
+    return [
+        CategoryShare(category=method, label=labels.get(method, 'Not specified'), total=total,
+                      percent=percent(total, grand_total))
+        for method, total in rows
+    ]
