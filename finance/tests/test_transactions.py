@@ -149,6 +149,11 @@ class ListAndFilterTests(TestCase):
         self.assertEqual(items, [self.food, self.bus, self.tuition])
         self.assertNotContains(response, 'someone-elses-secret')
 
+    def test_filter_labelled_type_not_kind(self):
+        response, _ = self.listed()
+        self.assertEqual(response.context['filter_form'].fields['kind'].label, 'Type')
+        self.assertNotContains(response, '<span>Kind</span>')
+
     def test_filter_by_kind(self):
         self.assertEqual(self.listed(kind='income')[1], [self.tuition])
 

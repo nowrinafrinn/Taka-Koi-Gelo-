@@ -65,7 +65,7 @@ class TransactionForm(forms.ModelForm):
 class TransactionFilterForm(forms.Form):
     """Validates the GET parameters of the transaction list."""
 
-    kind = forms.ChoiceField(choices=[('', 'All types'), *Transaction.Kind.choices], required=False)
+    kind = forms.ChoiceField(choices=[('', 'All types'), *Transaction.Kind.choices], required=False, label='Type')
     category = forms.ChoiceField(choices=[('', 'All categories'), *Transaction.Category.choices], required=False)
     start = forms.DateField(required=False, label='From', widget=forms.DateInput(attrs={'type': 'date'}))
     end = forms.DateField(required=False, label='To', widget=forms.DateInput(attrs={'type': 'date'}))
