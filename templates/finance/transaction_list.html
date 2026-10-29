@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}Transactions · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <h1>Transactions</h1>
+    <div class="actions">
+      <a class="button" href="{% url 'finance:income_create' %}">+ Income</a>
+      <a class="button button-expense" href="{% url 'finance:expense_create' %}">− Expense</a>
+    </div>
+  </div>
+
+  {# GET form: filters live in the URL, so a filtered view can be bookmarked. #}
+  <form method="get" class="filters" aria-label="Filter transactions">
+    {{ filter_form.non_field_errors }}
+    {% for field in filter_form %}
+      <label>
+        <span>{{ field.label }}</span>
+        {{ field }}
+        {{ field.errors }}
+      </label>
+    {% endfor %}
+    <div class="filter-buttons">
+      <button type="submit" class="button">Filter</button>
+      <a href="{% url 'finance:transaction_list' %}">Clear</a>
+    </div>
+  </form>
+
+  {% if page.object_list %}
+    <p class="muted">{{ page.paginator.count }} transaction{{ page.paginator.count|pluralize }}</p>
+    <ul class="tx-list">
+      {% for t in page.object_list %}
+        <li class="tx tx-{{ t.kind }}">
+          <div class="tx-main">
+            <strong>{{ t.get_category_display }}</strong>
+            <span class="muted">
+              {{ t.date|date:"j M Y" }}{% if t.payment_method %} · {{ t.get_payment_method_display }}{% endif %}
+            </span>
+            {% if t.note %}<span class="tx-note">{{ t.note }}</span>{% endif %}
+          </div>
+          <div class="tx-side">
+            <span class="tx-amount">{% if t.kind == 'expense' %}−{% else %}+{% endif %}{{ t.amount|taka }}</span>
+            <span class="tx-links">
+              <a href="{% url 'finance:transaction_update' t.pk %}">Edit</a>
+              <a href="{% url 'finance:transaction_delete' t.pk %}">Delete</a>
+            </span>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+
+    {% if page.has_other_pages %}
+      <nav class="pagination" aria-label="Pages">
+        {# {% querystring %} keeps the active filters while changing the page. #}
+        {% if page.has_previous %}<a href="{% querystring page=page.previous_page_number %}">← Newer</a>{% endif %}
+        <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a href="{% querystring page=page.next_page_number %}">Older →</a>{% endif %}
+      </nav>
+    {% endif %}
+  {% elif request.GET %}
+    <p>No transactions match these filters.</p>
+  {% else %}
+    <p>Nothing here yet. Add your first income or expense to see where the taka goes.</p>
+  {% endif %}
+{% endblock %}

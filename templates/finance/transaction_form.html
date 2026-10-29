@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Add{% endif %} {{ kind }} · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <section class="form-card">
+    <h1>
+      {% if is_edit %}Edit {{ kind }}
+      {% elif kind == 'income' %}Add income <span class="muted" lang="bn">টাকা এলো</span>
+      {% else %}Add expense <span class="muted" lang="bn">টাকা গেলো</span>
+      {% endif %}
+    </h1>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form }}
+      <div class="form-buttons">
+        <button type="submit" class="button">Save</button>
+        <a href="{% url 'finance:transaction_list' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

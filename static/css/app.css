@@ -47,9 +47,43 @@ body {
 .message { padding: 10px 12px; border-radius: 8px; background: #e6f2ec; }
 .message-error { background: #fbe7e4; }
 
-.auth-card { max-width: 420px; }
-.auth-card form > div { margin-bottom: 14px; }
-.auth-card input { display: block; width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; }
+.auth-card, .form-card { max-width: 420px; }
+.auth-card form > div, .form-card form > div { margin-bottom: 14px; }
+.auth-card input, .form-card input, .form-card select {
+  display: block; width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px;
+}
+.form-buttons, .filter-buttons { display: flex; gap: 12px; align-items: center; }
+
+.page-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.actions { display: flex; gap: 8px; }
+/* Two classes so these win over the base .button colour defined below. */
+.button.button-expense { background: #8a3b12; }
+.button.button-danger { background: #a3261b; }
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin: 16px 0;
+}
+.filters label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9em; }
+.filters input, .filters select { padding: 6px; }
+
+.tx-list { list-style: none; padding: 0; margin: 0; }
+.tx {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid #e3ddcf;
+}
+.tx-main, .tx-side { display: flex; flex-direction: column; gap: 2px; }
+.tx-side { align-items: flex-end; text-align: right; }
+.tx-note { font-size: 0.9em; overflow-wrap: anywhere; }
+.tx-amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+.tx-income .tx-amount { color: #0b6b4f; }
+.tx-expense .tx-amount { color: #8a3b12; }
+.tx-links { display: flex; gap: 10px; font-size: 0.9em; }
+
+.pagination { display: flex; gap: 16px; justify-content: center; margin-top: 16px; }
 .helptext, .muted { color: #5b665f; font-size: 0.9em; }
 .errorlist { color: #a3261b; padding-left: 18px; }
 
