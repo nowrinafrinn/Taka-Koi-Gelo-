@@ -315,3 +315,37 @@ class GoalOwnershipTests(TestCase):
             with self.subTest(url=url):
                 self.assertEqual(strict.post(url, {}).status_code, 403)
         self.assertEqual((SavingsGoal.objects.count(), GoalContribution.objects.count()), (1, 1))
+
+
+class SavingsRateWordingTests(TestCase):
+    def test_rate_above_100_is_explained(self):
+        user = User.objects.create_user('mitu', password='x')
+        self.client.force_login(user)
+        today = timezone.localdate()
+        add(user, 'income', '1000', today)
+        contribute(goal(user), '1500', today)
+        response = self.client.get(reverse('finance:stats'))
+        self.assertContains(response, '<strong>150.0%</strong> of recorded income, so more went to goals')
+
+
+class OwnerPagesRenderTests(TestCase):
+    def test_owner_sees_edit_and_confirm_pages_with_current_values(self):
+        user = User.objects.create_user('mitu', password='x')
+        self.client.force_login(user)
+        g = goal(user, 'Trip', '6000')
+        c = contribute(g, '250', note='first')
+        edit_goal = self.client.get(reverse('finance:goal_update', args=[g.pk]))
+        self.assertEqual(edit_goal.context['form'].initial['name'], 'Trip')
+        edit_contribution = self.client.get(reverse('finance:contribution_update', args=[c.pk]))
+        self.assertEqual(edit_contribution.context['form'].initial['amount'], D('250.00'))
+        confirm = self.client.get(reverse('finance:contribution_delete', args=[c.pk]))
+        self.assertContains(confirm, 'Yes, delete')
+        self.assertTrue(GoalContribution.objects.filter(pk=c.pk).exists())   # GET deletes nothing
+
+    def test_readable_names(self):
+        g = goal(User.objects.create_user('mitu', password='x'), 'Trip', '6000')
+        c = contribute(g, '250', date=datetime.date(2026, 10, 5))
+        g.refresh_from_db()
+        c.refresh_from_db()   # read back the stored 2-decimal values
+        self.assertEqual(str(g), 'Trip (৳6000.00)')
+        self.assertEqual(str(c), '৳250.00 to Trip on 2026-10-05')

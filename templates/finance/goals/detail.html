@@ -4,7 +4,7 @@
 {% block title %}{{ progress.goal.name }} · Savings goals · Taka Koi Gelo?{% endblock %}
 
 {% block content %}
-  <p class="small"><a href="{% url 'finance:goal_list' %}">← All goals</a></p>
+  <p class="small"><a class="back-link" href="{% url 'finance:goal_list' %}">← All goals</a></p>
   <div class="page-head">
     <h1>{{ progress.goal.name }}</h1>
     <div class="actions">

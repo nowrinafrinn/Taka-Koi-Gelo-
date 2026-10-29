@@ -45,6 +45,10 @@ about the numbers, and a little playful.
   - **Year view:** January–December compared in a server-drawn SVG bar chart, plus total income and expenses, the year's net, average monthly expenses, and the highest-spending and highest-surplus months.
   - **Surplus/deficit** = recorded income − recorded expenses. A surplus isn't presented as confirmed savings. Months with expenses but **no recorded income** get no surplus/deficit verdict. Over budget stays a separate flag.
   - A table doubles as the accessible version of the chart. On phones the chart scrolls within its card.
+- **Savings goals (`/goals/`):** goals with a target and an optional date.
+  - Record, edit and delete contributions. Each goal shows contributed, remaining, a percentage and a progress bar; completed goals are listed separately, and overdue ones are flagged.
+  - Contributions are kept **separate from expenses**: they never change spending, the budget, surplus/deficit or the available balance.
+  - The dashboard shows "set aside for goals" next to the balance. The stats page shows contributions and the **savings rate** (contributions ÷ income × 100, or **N/A** without income).
 - **3D wallet (Three.js):** procedural wallet and coins.
   - Coins in the wallet reflect your balance band.
   - A "spent" stack shows this month's expenses.
@@ -121,6 +125,18 @@ erDiagram
         date month "always the 1st · unique per user"
         decimal limit "12,2 · > 0"
     }
+    USER ||--o{ SAVINGS_GOAL : has
+    SAVINGS_GOAL ||--o{ GOAL_CONTRIBUTION : receives
+    SAVINGS_GOAL {
+        string name "unique per user"
+        decimal target_amount "12,2 · > 0"
+        date target_date "optional"
+    }
+    GOAL_CONTRIBUTION {
+        decimal amount "12,2 · > 0"
+        date date "not in the future"
+        string note
+    }
 ```
 
 Income and expenses share one table. This keeps the balance, the recent
@@ -135,6 +151,9 @@ constraints back up the model validation.
 | This month | The calendar month containing today **in Asia/Dhaka**, judged by each transaction's own date |
 | Budget remaining | This month's limit − this month's expenses (may be negative) |
 | Budget warning | Spent ≥ 80% of the limit (exact comparison, not the rounded percentage) |
+| Surplus / deficit | A month's recorded income − recorded expenses. A surplus is *not* presented as savings. A month with expenses but no recorded income gets no verdict. |
+| Savings contributions | Money recorded towards goals, in its own table. Never an expense; never subtracted from the balance. |
+| Savings rate | Contributions ÷ recorded income × 100 for the period, or "N/A" when there's no income |
 
 All money is `Decimal` with 2 places, from the database to the template. Sums
 are done in the database (four queries for the whole dashboard, whatever the
@@ -191,7 +210,7 @@ Open <http://127.0.0.1:8010>. On macOS or Linux, use `.venv/bin/python`.
 .venv\Scripts\python.exe -m coverage report
 ```
 
-**190 tests, 98% line coverage.** The only uncovered lines are
+**225 tests, 99% line coverage.** The only uncovered lines are
 production-only settings, which `check --deploy` verifies. The tests cover:
 
 - **Calculations:** empty data, zero values, negative balance, overspending, Decimal precision (1,000 × ৳0.10 = ৳100.00), and month boundaries including leap years and the Dhaka-midnight case.

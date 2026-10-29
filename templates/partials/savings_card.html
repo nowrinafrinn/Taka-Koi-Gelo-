@@ -5,7 +5,7 @@
   <strong class="stat-value">{{ contributions|taka }}</strong>
   <span class="muted small">
     Savings rate:
-    {% if rate is None %}<strong>N/A</strong> (no income recorded){% else %}<strong>{{ rate }}%</strong> of recorded income{% endif %}
+    {% if rate is None %}<strong>N/A</strong> (no income recorded){% else %}<strong>{{ rate }}%</strong> of recorded income{% if rate > 100 %}, so more went to goals than the income recorded in this period{% endif %}{% endif %}
     {% if not contributions %}· <a href="{% url 'finance:goal_list' %}">Set up a goal</a>{% endif %}
   </span>
 </div>

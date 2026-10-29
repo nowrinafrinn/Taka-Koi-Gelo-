@@ -590,6 +590,7 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--da
 .stacked-form label { display: block; font-weight: 600; margin-bottom: var(--space-1); }
 .on-note-link { color: inherit; text-decoration: underline; }
 .on-note-link:hover { color: inherit; }
+.back-link { display: inline-flex; align-items: center; min-height: 44px; }
 
 /* ---------- Pagination ---------- */
 .pagination { display: flex; gap: var(--space-4); justify-content: center; align-items: center; margin-top: var(--space-4); }
