@@ -40,10 +40,11 @@ about the numbers, and a little playful.
   - recent transactions;
   - a few factual insights (top category, daily allowance left, monthly net).
 - **Monthly budget:** limit, amount used, remaining (negative when over), and warnings at 80% and when over.
-- **Monthly stats (last 12 months):** a server-drawn SVG bar chart of income vs spending.
-  - Each month is marked **saved** or **overspent** (spent more than came in), and separately **over budget** (spent more than that month's limit).
-  - The summary shows 12-month net, months saved vs overspent, months over budget, and the best and toughest months.
-  - A month-by-month table doubles as the accessible version of the chart. On phones the chart scrolls within its card.
+- **Money insights (`/stats/`):**
+  - **Month view:** income, expenses, surplus/deficit, the budget, and spending by category for any month, with previous/next links.
+  - **Year view:** January–December compared in a server-drawn SVG bar chart, plus total income and expenses, the year's net, average monthly expenses, and the highest-spending and highest-surplus months.
+  - **Surplus/deficit** = recorded income − recorded expenses. A surplus isn't presented as confirmed savings. Months with expenses but **no recorded income** get no surplus/deficit verdict. Over budget stays a separate flag.
+  - A table doubles as the accessible version of the chart. On phones the chart scrolls within its card.
 - **3D wallet (Three.js):** procedural wallet and coins.
   - Coins in the wallet reflect your balance band.
   - A "spent" stack shows this month's expenses.
@@ -190,7 +191,7 @@ Open <http://127.0.0.1:8010>. On macOS or Linux, use `.venv/bin/python`.
 .venv\Scripts\python.exe -m coverage report
 ```
 
-**171 tests, 98% line coverage.** The only uncovered lines are
+**190 tests, 98% line coverage.** The only uncovered lines are
 production-only settings, which `check --deploy` verifies. The tests cover:
 
 - **Calculations:** empty data, zero values, negative balance, overspending, Decimal precision (1,000 × ৳0.10 = ৳100.00), and month boundaries including leap years and the Dhaka-midnight case.

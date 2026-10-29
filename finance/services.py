@@ -269,14 +269,17 @@ def wallet_visuals(summary, event=None):
 
 
 # ---------------------------------------------------------------------------
-# Monthly stats
+# Monthly money insights (stats page)
 # ---------------------------------------------------------------------------
-# One row per calendar month for the last N months (Asia/Dhaka "today").
-# Two separate verdicts per month, never mixed:
-#   net      = income - expenses   -> "saved" / "overspent" / "even"
-#   budget   = expenses > that month's limit -> over_budget (only if a budget existed)
-
-STATS_MONTHS = 12
+# Rules (also covered by tests):
+# - Only the user's own transactions; the month comes from each transaction's
+#   own `date`, never from when it was saved.
+# - Surplus/deficit = recorded income - recorded expenses. A surplus is money
+#   left over on paper, not confirmed savings; a deficit means recorded
+#   expenses exceeded recorded income, never "high spending" alone.
+# - A month with expenses but no recorded income gets no surplus/deficit
+#   verdict ("no_income"): we only show what was spent.
+# - Over budget stays a separate, existing flag (expenses > that month's limit).
 
 
 def add_months(month_start, count):
@@ -291,16 +294,12 @@ class MonthStat:
     income: Decimal
     expenses: Decimal
     budget_limit: Decimal | None
-    is_current: bool              # the month is still in progress
+    is_current: bool = False      # still in progress
+    is_future: bool = False       # has not started yet (year view only)
 
     @property
     def net(self):
         return self.income - self.expenses
-
-    @property
-    def shortfall(self):
-        """How much more went out than came in (0 when not overspent)."""
-        return max(-self.net, ZERO)
 
     @property
     def has_data(self):
@@ -308,60 +307,40 @@ class MonthStat:
 
     @property
     def verdict(self):
+        if self.is_future:
+            return 'future'
         if not self.has_data:
             return 'empty'
+        if not self.income:
+            return 'no_income'
         if self.net > 0:
-            return 'saved'
+            return 'surplus'
         if self.net < 0:
-            return 'overspent'
+            return 'deficit'
         return 'even'
+
+    @property
+    def shortfall(self):
+        """Size of a deficit as a positive amount (0 otherwise)."""
+        return max(-self.net, ZERO)
 
     @property
     def over_budget(self):
         return self.budget_limit is not None and self.expenses > self.budget_limit
 
-
-@dataclass
-class StatsSummary:
-    months: list[MonthStat]
-    saved_months: int
-    overspent_months: int
-    over_budget_months: int
-    budgeted_months: int
-    total_income: Decimal
-    total_expenses: Decimal
-    best_month: MonthStat | None      # highest positive net
-    worst_month: MonthStat | None     # most negative net
+    @property
+    def budget_over_by(self):
+        return max(self.expenses - self.budget_limit, ZERO) if self.budget_limit is not None else ZERO
 
     @property
-    def first_month(self):
-        return self.months[0].month
-
-    @property
-    def last_month(self):
-        return self.months[-1].month
-
-    @property
-    def total_net(self):
-        return self.total_income - self.total_expenses
-
-    @property
-    def has_data(self):
-        return any(m.has_data for m in self.months)
+    def budget_left(self):
+        return max(self.budget_limit - self.expenses, ZERO) if self.budget_limit is not None else ZERO
 
 
-def get_monthly_stats(user, today=None, months=STATS_MONTHS):
-    """Income, expenses and verdicts for each of the last `months` months.
-
-    Two queries regardless of data size: one grouped by month, one for budgets.
-    """
-    today = today or timezone.localdate()
-    current_start, current_end = month_bounds(today)
-    first_start = add_months(current_start, -(months - 1))
-
-    # Query 1: totals per calendar month, using each transaction's own date.
+def _month_rows(user, start, end):
+    """{month_start: row} with income/expenses for transactions dated start..end. One query."""
     rows = (
-        Transaction.objects.filter(user=user, date__range=(first_start, current_end))
+        Transaction.objects.filter(user=user, date__range=(start, end))
         .annotate(month=TruncMonth('date'))
         .values('month')
         .annotate(
@@ -370,37 +349,151 @@ def get_monthly_stats(user, today=None, months=STATS_MONTHS):
         )
         .order_by('month')
     )
-    totals = {row['month']: row for row in rows}
+    return {row['month']: row for row in rows}
 
-    # Query 2: budgets set for those months.
-    budgets = dict(
-        MonthlyBudget.objects.filter(user=user, month__range=(first_start, current_start))
+
+def _budgets(user, first_month, last_month):
+    """{month_start: limit} for budgets in the range. One query."""
+    return dict(
+        MonthlyBudget.objects.filter(user=user, month__range=(first_month, last_month))
         .values_list('month', 'limit')
     )
 
-    stats = []
-    for i in range(months):
-        start = add_months(first_start, i)
+
+@dataclass
+class YearComparison:
+    year: int
+    months: list[MonthStat]                 # always Jan..Dec
+    months_in_period: int                   # months that have started (used for the average)
+    total_income: Decimal
+    total_expenses: Decimal
+    average_expenses: Decimal               # total expenses / months_in_period
+    highest_spending: MonthStat | None
+    highest_surplus: MonthStat | None
+    surplus_months: int
+    deficit_months: int
+    no_income_months: int
+    over_budget_months: int
+    budgeted_months: int
+
+    @property
+    def net(self):
+        return self.total_income - self.total_expenses
+
+    @property
+    def shortfall(self):
+        return max(-self.net, ZERO)
+
+    @property
+    def has_income(self):
+        return self.total_income > 0
+
+    @property
+    def has_data(self):
+        return any(m.has_data for m in self.months)
+
+
+def get_year_comparison(user, year, today=None):
+    """Jan-Dec of `year`. Two queries regardless of data size."""
+    today = today or timezone.localdate()
+    current_start, _ = month_bounds(today)
+    first, last = datetime.date(year, 1, 1), datetime.date(year, 12, 1)
+    totals = _month_rows(user, first, datetime.date(year, 12, 31))
+    budgets = _budgets(user, first, last)
+
+    months = []
+    for i in range(12):
+        start = add_months(first, i)
         row = totals.get(start, {})
         limit = budgets.get(start)
-        stats.append(MonthStat(
+        months.append(MonthStat(
             month=start,
             income=money(row.get('income')),
             expenses=money(row.get('expenses')),
             budget_limit=money(limit) if limit is not None else None,
             is_current=start == current_start,
+            is_future=start > current_start,
         ))
 
-    positive = [m for m in stats if m.net > 0]
-    negative = [m for m in stats if m.net < 0]
-    return StatsSummary(
-        months=stats,
-        saved_months=len(positive),
-        overspent_months=len(negative),
-        over_budget_months=sum(m.over_budget for m in stats),
-        budgeted_months=sum(m.budget_limit is not None for m in stats),
-        total_income=sum((m.income for m in stats), ZERO),
-        total_expenses=sum((m.expenses for m in stats), ZERO),
-        best_month=max(positive, key=lambda m: m.net) if positive else None,
-        worst_month=min(negative, key=lambda m: m.net) if negative else None,
+    started = [m for m in months if not m.is_future]
+    total_expenses = sum((m.expenses for m in started), ZERO)
+    spending = [m for m in started if m.expenses > 0]
+    surpluses = [m for m in started if m.verdict == 'surplus']
+    return YearComparison(
+        year=year,
+        months=months,
+        months_in_period=len(started),
+        total_income=sum((m.income for m in started), ZERO),
+        total_expenses=total_expenses,
+        average_expenses=money(total_expenses / len(started)) if started else ZERO,
+        # max() keeps the earliest month on a tie.
+        highest_spending=max(spending, key=lambda m: m.expenses) if spending else None,
+        highest_surplus=max(surpluses, key=lambda m: m.net) if surpluses else None,
+        surplus_months=len(surpluses),
+        deficit_months=sum(m.verdict == 'deficit' for m in started),
+        no_income_months=sum(m.verdict == 'no_income' for m in started),
+        over_budget_months=sum(m.over_budget for m in started),
+        budgeted_months=sum(m.budget_limit is not None for m in started),
     )
+
+
+@dataclass
+class MonthReport:
+    stat: MonthStat
+    categories: list[CategoryShare]
+    transaction_count: int
+
+    @property
+    def start(self):
+        return self.stat.month
+
+    @property
+    def end(self):
+        return month_bounds(self.stat.month)[1]
+
+
+def get_month_report(user, year, month, today=None):
+    """One calendar month in detail. Three queries."""
+    today = today or timezone.localdate()
+    start = datetime.date(year, month, 1)
+    _, end = month_bounds(start)
+    transactions = Transaction.objects.filter(user=user, date__range=(start, end))
+    expense = Q(kind=Transaction.Kind.EXPENSE)
+
+    totals = transactions.aggregate(
+        income=Sum('amount', filter=Q(kind=Transaction.Kind.INCOME)),
+        expenses=Sum('amount', filter=expense),
+        count=Count('id'),
+    )
+    expenses = money(totals['expenses'])
+    rows = (
+        transactions.filter(expense).values('category')
+        .annotate(total=Sum('amount')).order_by('-total', 'category')
+    )
+    categories = [
+        CategoryShare(
+            category=row['category'],
+            label=Transaction.Category(row['category']).label,
+            total=money(row['total']),
+            percent=percent(money(row['total']), expenses),
+        )
+        for row in rows
+    ]
+    limit = MonthlyBudget.objects.filter(user=user, month=start).values_list('limit', flat=True).first()
+    current_start, _ = month_bounds(today)
+    stat = MonthStat(
+        month=start,
+        income=money(totals['income']),
+        expenses=expenses,
+        budget_limit=money(limit) if limit is not None else None,
+        is_current=start == current_start,
+        is_future=start > current_start,
+    )
+    return MonthReport(stat=stat, categories=categories, transaction_count=totals['count'])
+
+
+def first_transaction_year(user, today=None):
+    """Earliest year with a transaction (or this year). One query."""
+    today = today or timezone.localdate()
+    first = Transaction.objects.filter(user=user).order_by('date').values_list('date', flat=True).first()
+    return min(first.year, today.year) if first else today.year

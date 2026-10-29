@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from . import charts, services
-from .forms import BudgetForm, TransactionFilterForm, TransactionForm
+from .forms import BudgetForm, StatsPeriodForm, TransactionFilterForm, TransactionForm
 from .models import MonthlyBudget, Transaction
 from .templatetags.money import taka
 
@@ -37,12 +37,32 @@ def dashboard(request):
 
 @login_required
 def stats(request):
-    summary = services.get_monthly_stats(request.user)
-    return render(request, 'finance/stats.html', {
-        'stats': summary,
-        'chart': charts.bar_chart(summary),
-        'months_newest_first': list(reversed(summary.months)),
-    })
+    """Monthly money insights: one month in detail, or a year compared month by month."""
+    today = timezone.localdate()
+    period_form = StatsPeriodForm(
+        request.GET or None,
+        first_year=services.first_transaction_year(request.user, today),
+        today=today,
+    )
+    view, year, month = period_form.period()
+    context = {'period_form': period_form, 'view': view, 'year': year, 'month': month}
+
+    if view == 'year':
+        comparison = services.get_year_comparison(request.user, year, today)
+        context.update({
+            'comparison': comparison,
+            'chart': charts.bar_chart(comparison.months),
+        })
+    else:
+        report = services.get_month_report(request.user, year, month, today)
+        previous = services.add_months(report.start, -1)
+        following = services.add_months(report.start, 1)
+        context.update({
+            'report': report,
+            'previous': previous,
+            'following': following if following <= today.replace(day=1) else None,
+        })
+    return render(request, 'finance/stats.html', context)
 
 
 @login_required

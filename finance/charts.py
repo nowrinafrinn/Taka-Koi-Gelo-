@@ -35,9 +35,8 @@ def axis_label(amount):
     return f'৳{group_south_asian(str(int(amount)))}'
 
 
-def bar_chart(stats):
-    """Return everything the template needs to draw the chart."""
-    months = stats.months
+def bar_chart(months):
+    """Return everything the template needs to draw the chart for `months`."""
     top_value = nice_ceiling(max([m.income for m in months] + [m.expenses for m in months]))
     group_width = (WIDTH - LEFT - RIGHT) / len(months)
     bar_width = group_width * 0.32
@@ -58,12 +57,17 @@ def bar_chart(stats):
         expense_h = height_for(m.expenses)
         show_year = index == 0 or m.month.month == 1
         verdict_text = {
-            'saved': f'saved {taka(m.net)}',
-            'overspent': f'spent {taka(-m.net)} more than came in',
-            'even': 'income and spending were even',
+            'surplus': f'surplus {taka(m.net)}',
+            'deficit': f'deficit {taka(m.shortfall)}',
+            'even': 'income and expenses were equal',
+            'no_income': 'no income recorded',
             'empty': 'nothing recorded',
+            'future': 'not started yet',
         }[m.verdict]
-        title = f'{m.month:%B %Y}: income {taka(m.income)}, spent {taka(m.expenses)}, {verdict_text}'
+        if m.verdict == 'future':
+            title = f'{m.month:%B %Y}: not started yet'
+        else:
+            title = f'{m.month:%B %Y}: income {taka(m.income)}, expenses {taka(m.expenses)}, {verdict_text}'
         if m.over_budget:
             title += f', over the {taka(m.budget_limit)} budget'
         groups.append({
@@ -78,6 +82,7 @@ def bar_chart(stats):
             'verdict': m.verdict,
             'over_budget': m.over_budget,
             'is_current': m.is_current,
+            'is_future': m.verdict == 'future',
             'title': title,
         })
 

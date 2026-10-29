@@ -1,3 +1,5 @@
+import datetime
+
 from django import forms
 from django.utils import timezone
 
@@ -60,6 +62,36 @@ class TransactionForm(forms.ModelForm):
             payment.required = True
             # No empty option: expenses must pick one.
             payment.choices = Transaction.PaymentMethod.choices
+
+
+class StatsPeriodForm(forms.Form):
+    """GET parameters of the stats page: ?view=month|year&year=YYYY&month=M.
+
+    Anything missing or invalid falls back to the current month, so a bad
+    bookmark or hand-edited URL shows a sensible page instead of an error.
+    """
+
+    VIEW_CHOICES = [('month', 'Month'), ('year', 'Year')]
+    MONTH_CHOICES = [(i, datetime.date(2000, i, 1).strftime('%B')) for i in range(1, 13)]
+
+    view = forms.ChoiceField(choices=VIEW_CHOICES, required=False)
+    year = forms.TypedChoiceField(coerce=int, required=False)
+    month = forms.TypedChoiceField(coerce=int, choices=MONTH_CHOICES, required=False)
+
+    def __init__(self, *args, first_year, today, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.today = today
+        self.fields['year'].choices = [(y, y) for y in range(today.year, first_year - 1, -1)]
+
+    def period(self):
+        """(view, year, month), always valid and never in the future."""
+        data = self.cleaned_data if self.is_valid() else {}
+        view = data.get('view') or 'month'
+        year = data.get('year') or self.today.year
+        month = data.get('month') or (self.today.month if year == self.today.year else 12)
+        if (year, month) > (self.today.year, self.today.month):
+            month = self.today.month
+        return view, year, month
 
 
 class TransactionFilterForm(forms.Form):

@@ -1,0 +1,20 @@
+{% load money %}
+{# Surplus / deficit for one month. A surplus is recorded income minus recorded expenses, not confirmed savings. #}
+<div class="stat">
+  <span class="stat-label">Surplus / deficit</span>
+  {% if stat.verdict == 'surplus' %}
+    <strong class="stat-value">Surplus {{ stat.net|taka }}</strong>
+    <span class="muted small">Recorded income minus recorded expenses, not necessarily money saved.</span>
+  {% elif stat.verdict == 'deficit' %}
+    <strong class="stat-value negative">Deficit {{ stat.shortfall|taka }}</strong>
+    <span class="muted small">Recorded expenses were higher than recorded income.</span>
+  {% elif stat.verdict == 'no_income' %}
+    <strong class="stat-value muted">No income recorded</strong>
+    <span class="muted small">Showing expenses only; there is nothing to compare them with.</span>
+  {% elif stat.verdict == 'even' %}
+    <strong class="stat-value">Even</strong>
+    <span class="muted small">Recorded income and expenses were equal.</span>
+  {% else %}
+    <strong class="stat-value muted">—</strong>
+  {% endif %}
+</div>
