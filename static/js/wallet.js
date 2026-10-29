@@ -17,6 +17,21 @@ const COLORS = {
   coinDark: 0x7d5810,
 };
 
+// [x, y, z, tilt] for each coin that can peek out of the wallet, in the
+// order they appear as the balance grows.
+const PEEK_SLOTS = [
+  [-0.45, 0.98, -0.05, 0.12],
+  [0.18, 1.08, 0.02, -0.08],
+  [-0.05, 0.92, -0.12, 0.04],
+  [0.62, 0.95, -0.08, -0.18],
+  [-0.85, 0.9, -0.1, 0.22],
+];
+const MAX_STACK = 8;
+const STACK_STEP = 0.075;   // height of one coin in the stack
+const RING_INNER = 1.62;
+const RING_OUTER = 1.74;
+const RING_COLORS = { ok: 0x1f9a6f, warning: 0xd99a1e, over: 0xc0392b };
+
 /* ---------------------------------------------------------------------------
  * Capability checks
  * ------------------------------------------------------------------------- */
@@ -158,35 +173,51 @@ function buildScene() {
   stud.position.set(0.86, -0.05, 0.38);
   root.add(stud);
 
-  // Coins: two peeking out of the top, three stacked beside the wallet
+  // Coins peeking out of the top: up to 5 slots, shown according to the
+  // balance (see services.wallet_coin_count). They sit inside the wallet
+  // body, so only their top halves are visible.
   const coinMaterials = buildCoinMaterials(makeCoinFaceTexture());
   const coinGeometry = new THREE.CylinderGeometry(0.34, 0.34, 0.07, 48);
 
   const peeking = [];
-  [[-0.45, 0.98, -0.05, 0.12], [0.18, 1.08, 0.02, -0.08]].forEach(([x, y, z, tilt]) => {
+  PEEK_SLOTS.forEach(([x, y, z, tilt]) => {
     const coin = new THREE.Mesh(coinGeometry, coinMaterials);
     coin.rotation.set(Math.PI / 2, 0, tilt);   // stand upright, face the camera
     coin.position.set(x, y, z);
     coin.userData.baseY = y;
+    coin.visible = false;
     root.add(coin);
     peeking.push(coin);
   });
-  // Peeking coins sit behind the wallet's top edge so they look tucked in.
-  peeking.forEach((coin) => { coin.renderOrder = -1; });
 
+  // "Spent" stack on the table: one coin per expense this month (max 8).
   const stack = new THREE.Group();
-  for (let i = 0; i < 3; i += 1) {
+  for (let i = 0; i < MAX_STACK; i += 1) {
     const coin = new THREE.Mesh(coinGeometry, coinMaterials);
-    coin.position.set((i % 2) * 0.03, i * 0.075, (i % 2) * -0.02);
+    coin.position.set((i % 2) * 0.03, i * STACK_STEP, (i % 2) * -0.02);
     coin.rotation.y = i * 0.6;
+    coin.visible = false;
     stack.add(coin);
   }
-  stack.position.set(-1.85, -0.82, 0.35);
+  stack.position.set(-2.2, -0.93, 0.5);
   scene.add(stack);  // the stack rests on the "table", it does not float
 
   const shadow = makeContactShadow();
   shadow.position.y = -0.98;
   scene.add(shadow);
+
+  // Budget ring on the table around the wallet. The track is always there;
+  // the coloured arc is rebuilt from the data.
+  const ringGroup = new THREE.Group();
+  ringGroup.rotation.x = -Math.PI / 2;
+  ringGroup.position.y = -0.97;
+  const track = new THREE.Mesh(
+    new THREE.RingGeometry(RING_INNER, RING_OUTER, 128),
+    new THREE.MeshBasicMaterial({ color: 0x1c2b24, transparent: true, opacity: 0.08, depthWrite: false, toneMapped: false }),
+  );
+  ringGroup.add(track);
+  ringGroup.visible = false;
+  scene.add(ringGroup);
 
   // Lighting: soft environment for reflections + a warm key light
   scene.add(new THREE.HemisphereLight(0xfff6e5, 0x20352b, 0.45));
@@ -197,7 +228,52 @@ function buildScene() {
   rim.position.set(-4, 2, -3);
   scene.add(rim);
 
-  return { scene, root, peeking, stack };
+  return { scene, root, peeking, stack, ringGroup, coinGeometry, coinMaterials };
+}
+
+/** Show the right number of coins and the budget arc for this user's data. */
+function applyData(parts, data) {
+  const { peeking, stack, ringGroup } = parts;
+  peeking.forEach((coin, i) => { coin.visible = i < data.coins; });
+  stack.children.forEach((coin, i) => { coin.visible = i < data.spentCoins; });
+
+  // Replace the previous arc, if any.
+  const old = ringGroup.getObjectByName('budget-arc');
+  if (old) {
+    old.geometry.dispose();
+    old.material.dispose();
+    ringGroup.remove(old);
+  }
+  ringGroup.visible = Boolean(data.budgetRing);
+  if (data.budgetRing && data.budgetRing.fraction > 0) {
+    const arc = new THREE.Mesh(
+      // Starts at the front of the table and runs round as the budget is used.
+      new THREE.RingGeometry(RING_INNER, RING_OUTER, 128, 1, -Math.PI / 2, data.budgetRing.fraction * Math.PI * 2),
+      new THREE.MeshBasicMaterial({ color: RING_COLORS[data.budgetRing.state] ?? RING_COLORS.ok, toneMapped: false }),
+    );
+    arc.name = 'budget-arc';
+    arc.position.z = 0.001;  // just above the track
+    ringGroup.add(arc);
+  }
+}
+
+/** Accept only the shapes we expect; anything odd becomes a safe default. */
+export function readWalletData(raw) {
+  const int = (value, max) => Math.max(0, Math.min(max, Number.parseInt(value, 10) || 0));
+  let ring = null;
+  if (raw && raw.budgetRing) {
+    const fraction = Number.parseFloat(raw.budgetRing.fraction);
+    ring = {
+      fraction: Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : 0,
+      state: ['ok', 'warning', 'over'].includes(raw.budgetRing.state) ? raw.budgetRing.state : 'ok',
+    };
+  }
+  return {
+    coins: int(raw?.coins, PEEK_SLOTS.length),
+    spentCoins: int(raw?.spentCoins, MAX_STACK),
+    budgetRing: ring,
+    event: ['income', 'expense'].includes(raw?.event) ? raw.event : null,
+  };
 }
 
 /* ---------------------------------------------------------------------------
@@ -208,7 +284,10 @@ function buildScene() {
  * Add the 3D wallet to `stage`. Returns a controller, or null when 3D is not
  * possible (the SVG fallback is then left exactly as it was).
  */
-export async function initWallet(stage, { reducedMotion = prefersReducedMotion() } = {}) {
+export async function initWallet(stage, {
+  reducedMotion = prefersReducedMotion(),
+  data = readWalletData(null),
+} = {}) {
   if (!stage || !supportsWebGL()) return null;
 
   stage.classList.add('is-loading');
@@ -242,7 +321,9 @@ export async function initWallet(stage, { reducedMotion = prefersReducedMotion()
   canvas.className = 'wallet-canvas';
   stage.appendChild(canvas);
 
-  const { scene, root, peeking } = buildScene();
+  const parts = buildScene();
+  const { scene, root, peeking, stack, coinGeometry, coinMaterials } = parts;
+  applyData(parts, data);
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environmentIntensity = 0.55;  // reflections for the gold, without flattening the leather
@@ -297,8 +378,93 @@ export async function initWallet(stage, { reducedMotion = prefersReducedMotion()
     peeking.forEach((coin, i) => {
       coin.position.y = coin.userData.baseY + Math.sin(t * 1.3 + i * 1.7) * 0.025;
     });
+    runTweens();
 
     renderer.render(scene, camera);
+  }
+
+  // ---- tiny tween system for the save animations ------------------------------
+  const tweens = [];
+  function tween(duration, update, done) {
+    tweens.push({ start: performance.now(), duration, update, done });
+  }
+  function runTweens() {
+    const now = performance.now();
+    for (let i = tweens.length - 1; i >= 0; i -= 1) {
+      const item = tweens[i];
+      const progress = Math.min(1, (now - item.start) / item.duration);
+      item.update(progress);
+      if (progress >= 1) {
+        tweens.splice(i, 1);
+        item.done?.();
+      }
+    }
+  }
+  const easeIn = (p) => p * p;
+  const easeOut = (p) => 1 - (1 - p) ** 3;
+  const easeInOut = (p) => (p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2);
+
+  /** A loose coin: an upright coin inside a group we can spin around Y. */
+  function makeLooseCoin() {
+    const group = new THREE.Group();
+    const coin = new THREE.Mesh(coinGeometry, coinMaterials);
+    coin.rotation.x = Math.PI / 2;
+    group.add(coin);
+    return { group, coin };
+  }
+
+  /** Income: a coin drops into the wallet, which gives a small squash. */
+  function playIncome() {
+    const { group } = makeLooseCoin();
+    root.add(group);  // in wallet space, so it lines up with the opening
+    tween(900, (p) => {
+      group.position.set(0.05, 3.0 - easeIn(p) * 2.7, -0.05);
+      group.rotation.y = (1 - p) * Math.PI * 4;
+    }, () => {
+      root.remove(group);
+      tween(300, (p) => {
+        const s = Math.sin(p * Math.PI);
+        root.scale.set(1 + 0.03 * s, 1 - 0.05 * s, 1);
+      }, () => root.scale.set(1, 1, 1));
+    });
+  }
+
+  /** Expense: a coin rises out of the wallet and lands on the spent stack. */
+  function playExpense() {
+    const { group, coin } = makeLooseCoin();
+    scene.add(group);  // world space: it travels between wallet and stack
+    const from = root.localToWorld(new THREE.Vector3(0.05, 0.4, -0.05));
+    const top = from.clone().setY(from.y + 1.3);
+    const index = Math.max(0, data.spentCoins - 1);
+    const landing = stack.children[index];
+    const to = stack.localToWorld(new THREE.Vector3(0, index * STACK_STEP, 0));
+    if (landing) landing.visible = false;  // revealed when the flying coin lands
+
+    group.position.copy(from);
+    tween(450, (p) => {
+      group.position.lerpVectors(from, top, easeOut(p));
+      group.rotation.y = p * Math.PI * 2;
+    }, () => {
+      tween(700, (p) => {
+        const e = easeInOut(p);
+        group.position.lerpVectors(top, to, e);
+        group.position.y += Math.sin(p * Math.PI) * 0.5;   // gentle arc
+        coin.rotation.x = Math.PI / 2 * (1 - e);           // lie flat as it lands
+        group.rotation.y = Math.PI * 2 + p * Math.PI * 2;
+      }, () => {
+        scene.remove(group);
+        if (landing) landing.visible = data.spentCoins > 0;
+      });
+    });
+  }
+
+  /** Play a save animation. Never called for a failed save (see views.py). */
+  function play(kind) {
+    if (reducedMotion || !running) return false;
+    if (kind === 'income') playIncome();
+    else if (kind === 'expense') playExpense();
+    else return false;
+    return true;
   }
 
   function updateLoop() {
@@ -368,8 +534,14 @@ export async function initWallet(stage, { reducedMotion = prefersReducedMotion()
   stage.classList.add('is-3d');
   updateLoop();
 
+  // A save just happened: play its animation once the canvas has faded in.
+  if (data.event) setTimeout(() => play(data.event), 450);
+
   return {
     get isAnimating() { return running; },
+    get activeTweens() { return tweens.length; },
+    data,
+    play,
     renderer,
     scene,
     dispose,
@@ -382,7 +554,11 @@ export async function initWallet(stage, { reducedMotion = prefersReducedMotion()
 
 const stage = document.getElementById('wallet-stage');
 if (stage) {
-  initWallet(stage)
+  let raw = null;
+  try {
+    raw = JSON.parse(document.getElementById('wallet-data')?.textContent || 'null');
+  } catch { /* bad data: show the default wallet */ }
+  initWallet(stage, { data: readWalletData(raw) })
     .then((controller) => { stage.wallet = controller; })
     .catch((error) => {
       console.warn('3D wallet failed to start, keeping the illustration.', error);

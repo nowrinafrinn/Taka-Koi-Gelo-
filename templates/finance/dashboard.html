@@ -23,8 +23,8 @@
       <h1>Hi, {{ user.username }}</h1>
     </div>
     <div class="actions">
-      <a class="button" href="{% url 'finance:income_create' %}">+ Income</a>
-      <a class="button button-expense" href="{% url 'finance:expense_create' %}">− Expense</a>
+      <a class="button" href="{% url 'finance:income_create' %}?next=dashboard">+ Income</a>
+      <a class="button button-expense" href="{% url 'finance:expense_create' %}?next=dashboard">− Expense</a>
     </div>
   </div>
 
@@ -51,6 +51,8 @@
       </div>
     </div>
 
+    {# Visual-only values for the 3D wallet. json_script escapes the data safely. #}
+    {{ wallet|json_script:"wallet-data" }}
     <div class="wallet-stage" id="wallet-stage">
       {% include 'partials/wallet_illustration.html' %}
       <p class="wallet-status" aria-hidden="true">Loading 3D wallet…</p>

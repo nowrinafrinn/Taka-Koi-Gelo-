@@ -14,7 +14,7 @@ import datetime
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 
-from django.db.models import Q, Sum
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from .models import MonthlyBudget, Transaction
@@ -85,6 +85,7 @@ class DashboardSummary:
     budget: BudgetStatus | None
     categories: list[CategoryShare]
     recent: list[Transaction]
+    month_expense_count: int = 0
     insights: list[str] = field(default_factory=list)
 
     @property
@@ -172,6 +173,7 @@ def get_dashboard_summary(user, today=None):
         all_expenses=Sum('amount', filter=expense),
         month_income=Sum('amount', filter=income & this_month),
         month_expenses=Sum('amount', filter=expense & this_month),
+        month_expense_count=Count('id', filter=expense & this_month),
     )
     month_expenses = money(totals['month_expenses'])
 
@@ -207,6 +209,7 @@ def get_dashboard_summary(user, today=None):
         budget=get_budget_status(budget, month_expenses, today),
         categories=categories,
         recent=recent,
+        month_expense_count=totals['month_expense_count'],
     )
     summary.insights = build_insights(summary)
     return summary
@@ -218,3 +221,47 @@ def suggested_budget_limit(user, today=None):
     start, _ = month_bounds(today)
     previous = MonthlyBudget.objects.filter(user=user, month__lt=start).order_by('-month').first()
     return previous.limit if previous else None
+
+
+# ---------------------------------------------------------------------------
+# Wallet visuals
+# ---------------------------------------------------------------------------
+# The 3D wallet only *illustrates* figures that are already shown as text.
+# These rules turn real figures into a few small, explainable visual values.
+# Amounts are passed as strings so no float ever represents money.
+
+# Coins peeking out of the wallet, by all-time available balance (৳).
+WALLET_COIN_STEPS = [
+    (Decimal('500'), 1),
+    (Decimal('2000'), 2),
+    (Decimal('5000'), 3),
+    (Decimal('15000'), 4),
+]
+WALLET_MAX_COINS = 5
+MAX_SPENT_COINS = 8
+WALLET_EVENTS = {Transaction.Kind.INCOME, Transaction.Kind.EXPENSE}
+
+
+def wallet_coin_count(balance):
+    """0 coins when the balance is zero or negative, up to 5 when healthy."""
+    if balance <= 0:
+        return 0
+    for limit, coins in WALLET_COIN_STEPS:
+        if balance < limit:
+            return coins
+    return WALLET_MAX_COINS
+
+
+def wallet_visuals(summary, event=None):
+    """Data for the 3D wallet, embedded in the page with json_script."""
+    budget = summary.budget
+    ring = None
+    if budget:
+        fraction = min(budget.used_percent / 100, Decimal('1')).quantize(Decimal('0.001'))
+        ring = {'fraction': str(fraction), 'state': budget.state}
+    return {
+        'coins': wallet_coin_count(summary.balance),
+        'spentCoins': min(summary.month_expense_count, MAX_SPENT_COINS),
+        'budgetRing': ring,
+        'event': event if event in WALLET_EVENTS else None,
+    }

@@ -20,10 +20,19 @@ def home(request):
     return render(request, 'finance/home.html')
 
 
+WALLET_EVENT_KEY = 'wallet_event'
+
+
 @login_required
 def dashboard(request):
     summary = services.get_dashboard_summary(request.user)
-    return render(request, 'finance/dashboard.html', {'summary': summary})
+    # pop(): the save animation plays once, then the flag is gone, so a
+    # refresh or a later visit never replays it.
+    event = request.session.pop(WALLET_EVENT_KEY, None)
+    return render(request, 'finance/dashboard.html', {
+        'summary': summary,
+        'wallet': services.wallet_visuals(summary, event),
+    })
 
 
 @login_required
@@ -80,6 +89,11 @@ def transaction_create(request, kind):
         transaction = form.save()
         messages.success(request, f'{transaction.get_kind_display()} of {taka(transaction.amount)} saved.')
         # Post/Redirect/Get: refreshing the next page never re-submits the form.
+        # Only a fixed value is accepted for ?next, so it can't redirect off-site.
+        if request.GET.get('next') == 'dashboard':
+            # Set only here, after the row is saved: a failed form never animates.
+            request.session[WALLET_EVENT_KEY] = transaction.kind
+            return redirect('finance:dashboard')
         return redirect('finance:transaction_list')
     return render(request, 'finance/transaction_form.html', {'form': form, 'kind': kind, 'is_edit': False})
 
