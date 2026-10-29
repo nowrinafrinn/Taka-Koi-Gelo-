@@ -42,6 +42,14 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', default='localhost,127.0.0.1')
 CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
 
+# On Vercel, trust the hostnames Vercel itself assigns to this deployment
+# (production domain, branch URL, and the unique per-deployment URL).
+for vercel_var in ('VERCEL_PROJECT_PRODUCTION_URL', 'VERCEL_BRANCH_URL', 'VERCEL_URL'):
+    vercel_host = os.environ.get(vercel_var)
+    if vercel_host and vercel_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(vercel_host)
+        CSRF_TRUSTED_ORIGINS.append(f'https://{vercel_host}')
+
 # Production-only HTTPS hardening (checked by `manage.py check --deploy`).
 if not DEBUG:
     # Vercel terminates HTTPS and forwards the request over HTTP with this
@@ -186,6 +194,21 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'  # where `collectstatic` gathers files for production
+
+# In production, collectstatic adds a content hash to each filename
+# (app.css -> app.4f2a9c.css), so browsers never keep a stale copy after a deploy.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': (
+            'django.contrib.staticfiles.storage.StaticFilesStorage' if DEBUG
+            else 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+        ),
+    },
+}
+
+# Shared secret Vercel sends with its daily cron request (see config/views.py).
+CRON_SECRET = os.environ.get('CRON_SECRET', '')
 
 # Default primary key field type
 
