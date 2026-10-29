@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}Monthly stats · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1>Monthly stats</h1>
+      <p class="muted" style="margin:0">
+        Last 12 months · {{ stats.first_month|date:"M Y" }} – {{ stats.last_month|date:"M Y" }}
+      </p>
+    </div>
+  </div>
+
+  {% if not stats.has_data %}
+    <div class="empty">
+      <p><strong>No transactions in the last 12 months yet.</strong></p>
+      <p class="muted">Add income and expenses, and each month’s story will show up here.</p>
+      <a class="button" href="{% url 'finance:income_create' %}">+ Add income</a>
+    </div>
+  {% else %}
+
+    <section class="stats" aria-label="12-month summary">
+      <div class="stat">
+        <span class="stat-label">Net over 12 months</span>
+        <strong class="stat-value {% if stats.total_net < 0 %}negative{% endif %}">{{ stats.total_net|taka }}</strong>
+        <span class="muted small">{{ stats.total_income|taka }} in · {{ stats.total_expenses|taka }} out</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Months saved <span class="muted">vs</span> overspent</span>
+        <strong class="stat-value">{{ stats.saved_months }} <span class="muted">/</span> {{ stats.overspent_months }}</strong>
+        <span class="muted small">Overspent = spent more than came in</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Months over budget</span>
+        <strong class="stat-value">{{ stats.over_budget_months }}</strong>
+        <span class="muted small">
+          {% if stats.budgeted_months %}out of {{ stats.budgeted_months }} with a budget{% else %}No budgets set in this period{% endif %}
+        </span>
+      </div>
+    </section>
+
+    {% if stats.best_month or stats.worst_month %}
+      <ul class="insights panel" aria-label="Highlights">
+        {% if stats.best_month %}
+          <li><span>Best month: <strong>{{ stats.best_month.month|date:"F Y" }}</strong>, you kept {{ stats.best_month.net|taka }}.</span></li>
+        {% endif %}
+        {% if stats.worst_month %}
+          <li><span>Toughest month: <strong>{{ stats.worst_month.month|date:"F Y" }}</strong>, {{ stats.worst_month.shortfall|taka }} more went out than came in. <span lang="bn">টাকা কই গেলো?</span></span></li>
+        {% endif %}
+      </ul>
+    {% endif %}
+
+    <section class="panel" aria-labelledby="chart-title">
+      <div class="panel-head">
+        <h2 id="chart-title">Income vs spending by month</h2>
+      </div>
+      <ul class="chart-legend" aria-hidden="true">
+        <li><span class="swatch swatch-income"></span>Income</li>
+        <li><span class="swatch swatch-expense"></span>Spending</li>
+        <li><span class="dot dot-saved"></span>Saved</li>
+        <li><span class="dot dot-overspent"></span>Overspent</li>
+        <li><span class="marker-sample">!</span>Over budget</li>
+      </ul>
+
+      {# Drawn by Django: no JavaScript. The table below has the same data for screen readers. #}
+      <div class="chart-wrap">
+        <svg class="bar-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img"
+             aria-label="Bar chart of income and spending for the last 12 months. Exact figures are in the table below.">
+          {% for line in chart.grid %}
+            <line class="grid-line" x1="{{ chart.left }}" x2="{{ chart.right_edge }}" y1="{{ line.y }}" y2="{{ line.y }}"/>
+            <text class="axis-label" x="{{ chart.axis_x }}" y="{{ line.y }}" text-anchor="end" dominant-baseline="middle">{{ line.label }}</text>
+          {% endfor %}
+
+          {% for g in chart.groups %}
+            <g class="month{% if g.is_current %} is-current{% endif %}">
+              <title>{{ g.title }}</title>
+              <rect class="hit" x="{{ g.hit.x }}" y="0" width="{{ g.hit.w }}" height="{{ chart.height }}" fill="transparent"/>
+              <rect class="bar-income" x="{{ g.income.x }}" y="{{ g.income.y }}" width="{{ g.income.w }}" height="{{ g.income.h }}" rx="3"/>
+              <rect class="bar-expense" x="{{ g.expense.x }}" y="{{ g.expense.y }}" width="{{ g.expense.w }}" height="{{ g.expense.h }}" rx="3"/>
+              {% if g.over_budget %}
+                <text class="over-marker" x="{{ g.marker_x }}" y="{{ g.marker_y }}" text-anchor="middle">!</text>
+              {% endif %}
+              <circle class="dot-{{ g.verdict }}" cx="{{ g.center }}" cy="{{ chart.dot_y }}" r="6"/>
+              <text class="month-label" x="{{ g.center }}" y="{{ chart.label_y }}" text-anchor="middle">{{ g.label }}</text>
+              {% if g.year %}<text class="year-label" x="{{ g.center }}" y="{{ chart.year_y }}" text-anchor="middle">{{ g.year }}</text>{% endif %}
+            </g>
+          {% endfor %}
+        </svg>
+      </div>
+      <p class="muted small chart-swipe-hint" style="margin-top: var(--space-2)">Swipe the chart to see earlier months.</p>
+      <p class="muted small" style="margin-top: var(--space-2)">The current month is still in progress. Hover or tap a month for exact figures.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="table-title">
+      <h2 id="table-title">Month by month</h2>
+      <div class="table-wrap">
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th scope="col">Month</th>
+              <th scope="col" class="num-col">Income</th>
+              <th scope="col" class="num-col">Spent</th>
+              <th scope="col" class="num-col">Net</th>
+              <th scope="col">Budget</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in months_newest_first %}
+              <tr class="verdict-{{ m.verdict }}">
+                <th scope="row">
+                  {{ m.month|date:"M Y" }}
+                  {% if m.is_current %}<span class="pill">So far</span>{% endif %}
+                </th>
+                <td class="num-col">{{ m.income|taka }}</td>
+                <td class="num-col">{{ m.expenses|taka }}</td>
+                <td class="num-col net">
+                  {% if m.verdict == 'saved' %}<span class="tag tag-saved">Saved</span> {{ m.net|taka }}
+                  {% elif m.verdict == 'overspent' %}<span class="tag tag-overspent">Overspent</span> {{ m.net|taka }}
+                  {% elif m.verdict == 'even' %}Even
+                  {% else %}<span class="muted">—</span>{% endif %}
+                </td>
+                <td>
+                  {% if m.budget_limit is None %}<span class="muted">No budget</span>
+                  {% elif m.over_budget %}<span class="tag tag-overspent">Over</span> {{ m.budget_limit|taka }}
+                  {% else %}<span class="tag tag-saved">Within</span> {{ m.budget_limit|taka }}{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

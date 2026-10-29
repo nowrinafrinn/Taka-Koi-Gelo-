@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 
 from django.db.models import Count, Q, Sum
+from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
 from .models import MonthlyBudget, Transaction
@@ -265,3 +266,141 @@ def wallet_visuals(summary, event=None):
         'budgetRing': ring,
         'event': event if event in WALLET_EVENTS else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Monthly stats
+# ---------------------------------------------------------------------------
+# One row per calendar month for the last N months (Asia/Dhaka "today").
+# Two separate verdicts per month, never mixed:
+#   net      = income - expenses   -> "saved" / "overspent" / "even"
+#   budget   = expenses > that month's limit -> over_budget (only if a budget existed)
+
+STATS_MONTHS = 12
+
+
+def add_months(month_start, count):
+    """First day of the month `count` months after (or before) month_start."""
+    index = month_start.year * 12 + (month_start.month - 1) + count
+    return datetime.date(index // 12, index % 12 + 1, 1)
+
+
+@dataclass
+class MonthStat:
+    month: datetime.date          # first day of the month
+    income: Decimal
+    expenses: Decimal
+    budget_limit: Decimal | None
+    is_current: bool              # the month is still in progress
+
+    @property
+    def net(self):
+        return self.income - self.expenses
+
+    @property
+    def shortfall(self):
+        """How much more went out than came in (0 when not overspent)."""
+        return max(-self.net, ZERO)
+
+    @property
+    def has_data(self):
+        return bool(self.income or self.expenses)
+
+    @property
+    def verdict(self):
+        if not self.has_data:
+            return 'empty'
+        if self.net > 0:
+            return 'saved'
+        if self.net < 0:
+            return 'overspent'
+        return 'even'
+
+    @property
+    def over_budget(self):
+        return self.budget_limit is not None and self.expenses > self.budget_limit
+
+
+@dataclass
+class StatsSummary:
+    months: list[MonthStat]
+    saved_months: int
+    overspent_months: int
+    over_budget_months: int
+    budgeted_months: int
+    total_income: Decimal
+    total_expenses: Decimal
+    best_month: MonthStat | None      # highest positive net
+    worst_month: MonthStat | None     # most negative net
+
+    @property
+    def first_month(self):
+        return self.months[0].month
+
+    @property
+    def last_month(self):
+        return self.months[-1].month
+
+    @property
+    def total_net(self):
+        return self.total_income - self.total_expenses
+
+    @property
+    def has_data(self):
+        return any(m.has_data for m in self.months)
+
+
+def get_monthly_stats(user, today=None, months=STATS_MONTHS):
+    """Income, expenses and verdicts for each of the last `months` months.
+
+    Two queries regardless of data size: one grouped by month, one for budgets.
+    """
+    today = today or timezone.localdate()
+    current_start, current_end = month_bounds(today)
+    first_start = add_months(current_start, -(months - 1))
+
+    # Query 1: totals per calendar month, using each transaction's own date.
+    rows = (
+        Transaction.objects.filter(user=user, date__range=(first_start, current_end))
+        .annotate(month=TruncMonth('date'))
+        .values('month')
+        .annotate(
+            income=Sum('amount', filter=Q(kind=Transaction.Kind.INCOME)),
+            expenses=Sum('amount', filter=Q(kind=Transaction.Kind.EXPENSE)),
+        )
+        .order_by('month')
+    )
+    totals = {row['month']: row for row in rows}
+
+    # Query 2: budgets set for those months.
+    budgets = dict(
+        MonthlyBudget.objects.filter(user=user, month__range=(first_start, current_start))
+        .values_list('month', 'limit')
+    )
+
+    stats = []
+    for i in range(months):
+        start = add_months(first_start, i)
+        row = totals.get(start, {})
+        limit = budgets.get(start)
+        stats.append(MonthStat(
+            month=start,
+            income=money(row.get('income')),
+            expenses=money(row.get('expenses')),
+            budget_limit=money(limit) if limit is not None else None,
+            is_current=start == current_start,
+        ))
+
+    positive = [m for m in stats if m.net > 0]
+    negative = [m for m in stats if m.net < 0]
+    return StatsSummary(
+        months=stats,
+        saved_months=len(positive),
+        overspent_months=len(negative),
+        over_budget_months=sum(m.over_budget for m in stats),
+        budgeted_months=sum(m.budget_limit is not None for m in stats),
+        total_income=sum((m.income for m in stats), ZERO),
+        total_expenses=sum((m.expenses for m in stats), ZERO),
+        best_month=max(positive, key=lambda m: m.net) if positive else None,
+        worst_month=min(negative, key=lambda m: m.net) if negative else None,
+    )

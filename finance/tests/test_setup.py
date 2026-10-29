@@ -58,3 +58,10 @@ class DependencyListsTests(TestCase):
             if line.strip() and not line.startswith('#')
         }
         self.assertEqual(from_pyproject, from_requirements)
+
+
+class FaviconTests(TestCase):
+    def test_favicon_ico_redirects_to_the_coin_icon(self):
+        response = self.client.get('/favicon.ico')
+        self.assertEqual(response.status_code, 301)
+        self.assertTrue(response['Location'].endswith('img/coin.svg'))

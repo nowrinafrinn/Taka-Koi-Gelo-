@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from . import services
+from . import charts, services
 from .forms import BudgetForm, TransactionFilterForm, TransactionForm
 from .models import MonthlyBudget, Transaction
 from .templatetags.money import taka
@@ -32,6 +32,16 @@ def dashboard(request):
     return render(request, 'finance/dashboard.html', {
         'summary': summary,
         'wallet': services.wallet_visuals(summary, event),
+    })
+
+
+@login_required
+def stats(request):
+    summary = services.get_monthly_stats(request.user)
+    return render(request, 'finance/stats.html', {
+        'stats': summary,
+        'chart': charts.bar_chart(summary),
+        'months_newest_first': list(reversed(summary.months)),
     })
 
 
