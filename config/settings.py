@@ -207,6 +207,26 @@ STORAGES = {
     },
 }
 
+# Logging
+# Django's default only prints errors to the console when DEBUG is True. In
+# production we need the traceback of every 500 in Vercel's function logs,
+# so send warnings and errors to the console (stderr) in all environments.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {'format': '{levelname} {name}: {message}', 'style': '{'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'simple'},
+    },
+    'root': {'handlers': ['console'], 'level': 'WARNING'},
+    'loggers': {
+        # 'django.request' logs 5xx errors with the full traceback.
+        'django': {'handlers': ['console'], 'level': os.environ.get('DJANGO_LOG_LEVEL', 'WARNING'), 'propagate': False},
+    },
+}
+
 # Shared secret Vercel sends with its daily cron request (see config/views.py).
 CRON_SECRET = os.environ.get('CRON_SECRET', '')
 
