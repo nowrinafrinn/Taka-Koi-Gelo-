@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign up · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <section class="auth-card">
+    <h1>Start tracking</h1>
+    <p class="muted">Know where your money goes, before it disappears.</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form }}
+      <button type="submit" class="button">Create account</button>
+    </form>
+
+    <p>Already have an account? <a href="{% url 'accounts:login' %}">Log in</a></p>
+  </section>
+{% endblock %}

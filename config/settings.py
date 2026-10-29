@@ -87,6 +87,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
+# Authentication
+# Where @login_required sends anonymous visitors, and where users land
+# after logging in or out. Names are URL names, resolved at request time.
+
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = 'finance:dashboard'
+LOGOUT_REDIRECT_URL = 'finance:home'
+
+
 # Database
 # SQLite locally. PostgreSQL for production is configured in a later stage.
 

@@ -17,6 +17,54 @@ body {
   text-decoration: none;
 }
 
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site-nav {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.inline-form { display: inline; }
+
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: #0b6b4f;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.messages { list-style: none; padding: 0; }
+.message { padding: 10px 12px; border-radius: 8px; background: #e6f2ec; }
+.message-error { background: #fbe7e4; }
+
+.auth-card { max-width: 420px; }
+.auth-card form > div { margin-bottom: 14px; }
+.auth-card input { display: block; width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; }
+.helptext, .muted { color: #5b665f; font-size: 0.9em; }
+.errorlist { color: #a3261b; padding-left: 18px; }
+
+.button {
+  display: inline-block;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #0b6b4f;
+  color: #fff;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .container {
   max-width: 960px;
   margin: 0 auto;

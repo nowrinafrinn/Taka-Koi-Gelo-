@@ -9,9 +9,31 @@
 <body>
   <header class="site-header">
     <a class="brand" href="{% url 'finance:home' %}">Taka Koi Gelo? <span lang="bn">টাকা কই গেলো?</span></a>
+
+    <nav class="site-nav" aria-label="Account">
+      {% if user.is_authenticated %}
+        <span class="nav-user">{{ user.username }}</span>
+        {# Logout changes state, so it is a POST form with a CSRF token, not a link. #}
+        <form method="post" action="{% url 'accounts:logout' %}" class="inline-form">
+          {% csrf_token %}
+          <button type="submit" class="link-button">Log out</button>
+        </form>
+      {% else %}
+        <a href="{% url 'accounts:login' %}">Log in</a>
+        <a href="{% url 'accounts:signup' %}">Sign up</a>
+      {% endif %}
+    </nav>
   </header>
 
   <main class="container">
+    {% if messages %}
+      <ul class="messages" role="status">
+        {% for message in messages %}
+          <li class="message message-{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
     {% block content %}{% endblock %}
   </main>
 </body>
