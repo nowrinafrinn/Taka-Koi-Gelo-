@@ -5,17 +5,20 @@
 {% block content %}
   <section class="form-card">
     <h1>
-      {% if is_edit %}Edit {{ kind }}
-      {% elif kind == 'income' %}Add income <span class="muted" lang="bn">টাকা এলো</span>
-      {% else %}Add expense <span class="muted" lang="bn">টাকা গেলো</span>
-      {% endif %}
+      {% if is_edit %}Edit {{ kind }}{% else %}Add {{ kind }}{% endif %}
+      {% if kind == 'income' %}<span class="kind-tag kind-income" lang="bn">টাকা এলো</span>
+      {% else %}<span class="kind-tag kind-expense" lang="bn">টাকা গেলো</span>{% endif %}
     </h1>
+    <p class="lede">
+      {% if kind == 'income' %}Pocket money, tuition or part-time pay: anything that came in.
+      {% else %}Food, rickshaw, recharge: anything that went out.{% endif %}
+    </p>
 
     <form method="post" novalidate>
       {% csrf_token %}
       {{ form }}
       <div class="form-buttons">
-        <button type="submit" class="button">Save</button>
+        <button type="submit" class="button {% if kind == 'expense' %}button-expense{% endif %}">Save</button>
         <a href="{% url 'finance:transaction_list' %}">Cancel</a>
       </div>
     </form>

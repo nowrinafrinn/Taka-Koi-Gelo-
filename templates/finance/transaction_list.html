@@ -1,5 +1,4 @@
 {% extends 'base.html' %}
-{% load money %}
 
 {% block title %}Transactions · Taka Koi Gelo?{% endblock %}
 
@@ -13,8 +12,10 @@
   </div>
 
   {# GET form: filters live in the URL, so a filtered view can be bookmarked. #}
-  <form method="get" class="filters" aria-label="Filter transactions">
-    {{ filter_form.non_field_errors }}
+  <form method="get" class="panel filters" aria-label="Filter transactions">
+    {% if filter_form.non_field_errors %}
+      <div style="grid-column: 1 / -1">{{ filter_form.non_field_errors }}</div>
+    {% endif %}
     {% for field in filter_form %}
       <label>
         <span>{{ field.label }}</span>
@@ -29,27 +30,14 @@
   </form>
 
   {% if page.object_list %}
-    <p class="muted">{{ page.paginator.count }} transaction{{ page.paginator.count|pluralize }}</p>
-    <ul class="tx-list">
-      {% for t in page.object_list %}
-        <li class="tx tx-{{ t.kind }}">
-          <div class="tx-main">
-            <strong>{{ t.get_category_display }}</strong>
-            <span class="muted">
-              {{ t.date|date:"j M Y" }}{% if t.payment_method %} · {{ t.get_payment_method_display }}{% endif %}
-            </span>
-            {% if t.note %}<span class="tx-note">{{ t.note }}</span>{% endif %}
-          </div>
-          <div class="tx-side">
-            <span class="tx-amount">{% if t.kind == 'expense' %}−{% else %}+{% endif %}{{ t.amount|taka }}</span>
-            <span class="tx-links">
-              <a href="{% url 'finance:transaction_update' t.pk %}">Edit</a>
-              <a href="{% url 'finance:transaction_delete' t.pk %}">Delete</a>
-            </span>
-          </div>
-        </li>
-      {% endfor %}
-    </ul>
+    <section class="panel" aria-label="Transaction list">
+      <p class="muted small">{{ page.paginator.count }} transaction{{ page.paginator.count|pluralize }}</p>
+      <ul class="tx-list">
+        {% for t in page.object_list %}
+          {% include 'partials/transaction_row.html' with t=t compact=False %}
+        {% endfor %}
+      </ul>
+    </section>
 
     {% if page.has_other_pages %}
       <nav class="pagination" aria-label="Pages">
@@ -60,8 +48,11 @@
       </nav>
     {% endif %}
   {% elif request.GET %}
-    <p>No transactions match these filters.</p>
+    <div class="empty"><p>No transactions match these filters.</p></div>
   {% else %}
-    <p>Nothing here yet. Add your first income or expense to see where the taka goes.</p>
+    <div class="empty">
+      <p><strong>Nothing here yet.</strong></p>
+      <p class="muted">Add your first income or expense to see where the taka goes.</p>
+    </div>
   {% endif %}
 {% endblock %}

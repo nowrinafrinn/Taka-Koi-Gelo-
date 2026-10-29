@@ -6,13 +6,13 @@
 {% block content %}
   <section class="form-card">
     <h1>Delete this {{ transaction.get_kind_display|lower }}?</h1>
-    <p>
-      <strong>{{ transaction.amount|taka }}</strong> ·
+    <p class="delete-summary">
+      <strong class="num">{{ transaction.amount|taka }}</strong> ·
       {{ transaction.get_category_display }} ·
       {{ transaction.date|date:"j M Y" }}
       {% if transaction.note %}<br><span class="muted">{{ transaction.note }}</span>{% endif %}
     </p>
-    <p class="muted">This cannot be undone.</p>
+    <p class="muted">This cannot be undone. Your balance and budget will update straight away.</p>
 
     <form method="post">
       {% csrf_token %}

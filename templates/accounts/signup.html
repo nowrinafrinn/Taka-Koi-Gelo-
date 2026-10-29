@@ -3,16 +3,18 @@
 {% block title %}Sign up · Taka Koi Gelo?{% endblock %}
 
 {% block content %}
-  <section class="auth-card">
+  <section class="form-card">
     <h1>Start tracking</h1>
-    <p class="muted">Know where your money goes, before it disappears.</p>
+    <p class="lede">Know where your money goes, before it disappears.</p>
 
     <form method="post" novalidate>
       {% csrf_token %}
       {{ form }}
-      <button type="submit" class="button">Create account</button>
+      <div class="form-buttons">
+        <button type="submit" class="button">Create account</button>
+      </div>
     </form>
 
-    <p>Already have an account? <a href="{% url 'accounts:login' %}">Log in</a></p>
+    <p class="form-footer">Already have an account? <a href="{% url 'accounts:login' %}">Log in</a></p>
   </section>
 {% endblock %}

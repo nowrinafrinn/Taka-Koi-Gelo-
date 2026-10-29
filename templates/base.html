@@ -2,33 +2,69 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Taka Koi Gelo? — know where your money goes, before it disappears.">
+  <meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111d18" media="(prefers-color-scheme: dark)">
   <title>{% block title %}Taka Koi Gelo?{% endblock %}</title>
+  <link rel="icon" href="{% static 'img/coin.svg' %}" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Galada&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% block head %}{% endblock %}
 </head>
-<body>
+<body class="{% if not user.is_authenticated %}is-anonymous{% endif %}">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  {% with current=request.resolver_match.url_name %}
   <header class="site-header">
-    <a class="brand" href="{% url 'finance:home' %}">Taka Koi Gelo? <span lang="bn">টাকা কই গেলো?</span></a>
+    <div class="site-header-inner">
+      <a class="brand" href="{% url 'finance:home' %}">
+        <img class="brand-mark" src="{% static 'img/coin.svg' %}" alt="" width="22" height="22">
+        <span>Taka Koi Gelo?</span>
+        <span class="brand-bn" lang="bn">টাকা কই গেলো?</span>
+      </a>
 
-    <nav class="site-nav" aria-label="Account">
       {% if user.is_authenticated %}
-        <a href="{% url 'finance:dashboard' %}">Dashboard</a>
-        <a href="{% url 'finance:budget_edit' %}">Budget</a>
-        <a href="{% url 'finance:transaction_list' %}">Transactions</a>
-        <span class="nav-user">{{ user.username }}</span>
-        {# Logout changes state, so it is a POST form with a CSRF token, not a link. #}
-        <form method="post" action="{% url 'accounts:logout' %}" class="inline-form">
-          {% csrf_token %}
-          <button type="submit" class="link-button">Log out</button>
-        </form>
-      {% else %}
-        <a href="{% url 'accounts:login' %}">Log in</a>
-        <a href="{% url 'accounts:signup' %}">Sign up</a>
-      {% endif %}
-    </nav>
-  </header>
+        <nav class="main-nav" aria-label="Main">
+          <a href="{% url 'finance:dashboard' %}" {% if current == 'dashboard' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+            <span>Home</span>
+          </a>
+          <a href="{% url 'finance:transaction_list' %}" {% if current == 'transaction_list' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            <span>Transactions</span>
+          </a>
+          <a href="{% url 'finance:budget_edit' %}" {% if current == 'budget_edit' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            <span>Budget</span>
+          </a>
+          <a class="nav-add" href="{% url 'finance:expense_create' %}" {% if current == 'expense_create' %}aria-current="page"{% endif %}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>
+            <span>Spend</span>
+          </a>
+        </nav>
 
-  <main class="container">
+        <div class="header-actions">
+          <span class="header-user">{{ user.username }}</span>
+          {# Logout changes state, so it is a POST form with a CSRF token, not a link. #}
+          <form method="post" action="{% url 'accounts:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="link-button">Log out</button>
+          </form>
+        </div>
+      {% else %}
+        <div class="header-actions">
+          <a href="{% url 'accounts:login' %}">Log in</a>
+          <a class="button" href="{% url 'accounts:signup' %}">Sign up</a>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+  {% endwith %}
+
+  <main id="main" class="container">
     {% if messages %}
       <ul class="messages" role="status">
         {% for message in messages %}
@@ -39,5 +75,7 @@
 
     {% block content %}{% endblock %}
   </main>
+
+  {% block scripts %}{% endblock %}
 </body>
 </html>

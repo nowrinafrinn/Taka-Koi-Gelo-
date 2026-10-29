@@ -1,10 +1,28 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  <h1>Know where your money goes, before it disappears.</h1>
-  <p>Track pocket money, tuition income and every ৳ you spend.</p>
-  <p>
-    <a class="button" href="{% url 'accounts:signup' %}">Get started</a>
-    <a href="{% url 'accounts:login' %}">I already have an account</a>
-  </p>
+  <section class="landing">
+    <div>
+      <p class="landing-kicker" lang="bn">টাকা কই গেলো?</p>
+      <h1>Know where your money goes, before it disappears.</h1>
+      <p class="lede">
+        A pocket-sized money diary for students. Log pocket money, tuition income and every
+        cha, rickshaw and canteen lunch, then see exactly where your taka went this month.
+      </p>
+      <div class="actions">
+        <a class="button" href="{% url 'accounts:signup' %}">Start tracking, it’s free</a>
+        <a class="button button-quiet" href="{% url 'accounts:login' %}">I have an account</a>
+      </div>
+
+      <ul class="feature-list">
+        <li><span><strong>One clear balance.</strong> Everything you earned minus everything you spent.</span></li>
+        <li><span><strong>A monthly budget that warns you</strong> at 80%, before the month runs out.</span></li>
+        <li><span><strong>Spending by category</strong> so “where did it go?” has an actual answer.</span></li>
+      </ul>
+    </div>
+
+    <div class="wallet-stage">
+      {% include 'partials/wallet_illustration.html' %}
+    </div>
+  </section>
 {% endblock %}

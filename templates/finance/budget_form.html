@@ -5,7 +5,10 @@
 {% block content %}
   <section class="form-card">
     <h1>Budget for {{ month_start|date:"F Y" }}</h1>
-    <p class="muted">Every expense dated this month counts against it. You will see a warning at 80%.</p>
+    <p class="lede">
+      How much do you want to spend this month? Every expense dated in {{ month_start|date:"F" }}
+      counts against it, and you’ll see a warning at 80%.
+    </p>
 
     <form method="post" novalidate>
       {% csrf_token %}

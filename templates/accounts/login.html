@@ -3,18 +3,20 @@
 {% block title %}Log in · Taka Koi Gelo?{% endblock %}
 
 {% block content %}
-  <section class="auth-card">
+  <section class="form-card">
     <h1>Welcome back</h1>
-    <p class="muted">Let’s see where the taka went.</p>
+    <p class="lede">Let’s see where the taka went.</p>
 
     <form method="post" novalidate>
       {% csrf_token %}
       {{ form }}
       {# Keeps ?next=… so the user returns to the page they asked for. #}
       <input type="hidden" name="next" value="{{ next }}">
-      <button type="submit" class="button">Log in</button>
+      <div class="form-buttons">
+        <button type="submit" class="button">Log in</button>
+      </div>
     </form>
 
-    <p>New here? <a href="{% url 'accounts:signup' %}">Create an account</a></p>
+    <p class="form-footer">New here? <a href="{% url 'accounts:signup' %}">Create an account</a></p>
   </section>
 {% endblock %}

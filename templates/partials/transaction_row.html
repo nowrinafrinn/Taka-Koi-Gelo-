@@ -1,0 +1,24 @@
+{% load money %}
+{# One transaction. `compact` hides the note and the edit/delete links (dashboard). #}
+<li class="tx tx-{{ t.kind }}">
+  <span class="tx-icon" aria-hidden="true">{% if t.kind == 'expense' %}−{% else %}+{% endif %}</span>
+  <div class="tx-main">
+    <strong>{{ t.get_category_display }}</strong>
+    <span class="tx-meta">
+      {{ t.date|date:"j M Y" }}{% if t.payment_method %} · {{ t.get_payment_method_display }}{% endif %}
+    </span>
+    {% if t.note and not compact %}<span class="tx-note">{{ t.note }}</span>{% endif %}
+  </div>
+  <div class="tx-side">
+    <span class="tx-amount">
+      <span class="visually-hidden">{{ t.get_kind_display }}:</span>
+      {% if t.kind == 'expense' %}−{% else %}+{% endif %}{{ t.amount|taka }}
+    </span>
+    {% if not compact %}
+      <span class="tx-links">
+        <a href="{% url 'finance:transaction_update' t.pk %}">Edit<span class="visually-hidden"> {{ t.get_category_display }} on {{ t.date|date:"j M" }}</span></a>
+        <a href="{% url 'finance:transaction_delete' t.pk %}">Delete<span class="visually-hidden"> {{ t.get_category_display }} on {{ t.date|date:"j M" }}</span></a>
+      </span>
+    {% endif %}
+  </div>
+</li>
