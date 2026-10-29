@@ -1,0 +1,25 @@
+# Local development database only. Production uses Supabase.
+#   Start:  docker compose up -d
+#   Stop:   docker compose stop
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: takakoigelo-db
+    environment:
+      POSTGRES_DB: takakoigelo
+      POSTGRES_USER: takakoigelo
+      # Local-only password for a database that is never exposed publicly.
+      POSTGRES_PASSWORD: takakoigelo-local
+    ports:
+      # 5433 on this machine -> 5432 in the container (5432 is used by another project).
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U takakoigelo -d takakoigelo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

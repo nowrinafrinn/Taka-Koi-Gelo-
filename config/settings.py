@@ -9,6 +9,7 @@ allowed hosts) are read from environment variables. Locally they come from a
 import os
 from pathlib import Path
 
+import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
@@ -97,14 +98,34 @@ LOGOUT_REDIRECT_URL = 'finance:home'
 
 
 # Database
-# SQLite locally. PostgreSQL for production is configured in a later stage.
+# PostgreSQL everywhere, configured by one URL:
+#   local:      Docker container from docker-compose.yml (see .env.example)
+#   production: Supabase transaction pooler (port 6543)
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
+    raise ImproperlyConfigured('DATABASE_URL must be set. Copy .env.example to .env for local development.')
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.parse(
+        DATABASE_URL,
+        # 0 = close the connection after each request. Right for serverless,
+        # where a pooler (not Django) keeps connections open.
+        conn_max_age=int(os.environ.get('DB_CONN_MAX_AGE', '0')),
+        conn_health_checks=True,
+    )
 }
+DATABASES['default'].update({
+    # Transaction-mode poolers hand each transaction a possibly different
+    # connection, so these two Postgres features must not be relied on.
+    'DISABLE_SERVER_SIDE_CURSORS': True,
+    'OPTIONS': {
+        **DATABASES['default'].get('OPTIONS', {}),
+        'prepare_threshold': None,  # psycopg 3: never create prepared statements
+    },
+})
+if env_bool('DB_SSL_REQUIRE', default=False):
+    DATABASES['default']['OPTIONS']['sslmode'] = 'require'
 
 
 # Password validation
