@@ -45,6 +45,7 @@ about the numbers, and a little playful.
 - **Money insights (`/stats/`):**
   - **Month view:** income, expenses, surplus/deficit, the budget, and spending by category for any month, with previous/next links.
   - **Daily spending:** one bar per day (biggest day highlighted, no-spend days counted), with a **Bars | Calendar** switch. The calendar is Sunday-first, shades each day relative to the month's biggest day, and meets 4.5:1 text contrast. **How you paid** shows expenses by payment method (Cash, bKash, Nagad, Rocket, Card, Bank).
+  - **Day pages (`/stats/day/YYYY-MM-DD/`):** tap any bar or calendar day to see that day's transactions (category, payment method, note), spent, income and goal contributions, with previous/next day buttons. Quick add pre-fills the date. Add, edit and delete bring you back to the same day (and keep calendar mode). Redirects are built from the saved transaction's own date, never from the URL.
   - **Monthly report:** rule-based insights in two separate groups. **Spending:** the % change from last month, shown only when last month had expenses, and worded "so far" for a month in progress; the largest category, including ties. **Savings goals:** amount contributed, share of income, and the change from last month.
   - **Year view:** January–December compared in a server-drawn SVG bar chart, plus total income and expenses, the year's net, average monthly expenses, and the highest-spending and highest-surplus months.
   - **Year charts:** each month's spending as **stacked category bars** (fixed colour per category, at least 3:1 contrast in both themes, with a category total list underneath), and **budget vs actual** (outlined budget bar, spending green up to the limit and red above it, spending-only for months without a budget).
@@ -215,7 +216,7 @@ Open <http://127.0.0.1:8010>. On macOS or Linux, use `.venv/bin/python`.
 .venv\Scripts\python.exe -m coverage report
 ```
 
-**293 tests, 99% line coverage.** The only uncovered lines are
+**313 tests, 99% line coverage.** The only uncovered lines are
 production-only settings, which `check --deploy` verifies. The tests cover:
 
 - **Calculations:** empty data, zero values, negative balance, overspending, Decimal precision (1,000 × ৳0.10 = ৳100.00), and month boundaries including leap years and the Dhaka-midnight case.

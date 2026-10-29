@@ -122,12 +122,13 @@
                   {% for d in week %}
                     {% if d is None %}<span role="cell" class="calendar-cell is-blank"></span>
                     {% else %}
-                      <span role="cell" class="calendar-cell level-{{ d.level }}{% if d.is_future %} is-future{% endif %}"
-                            title="{{ d.date|date:'j F' }}: {% if d.is_future %}hasn’t happened yet{% elif d.amount %}{{ d.amount|taka }} spent{% else %}no expenses{% endif %}">
+                      {% if d.is_future %}<span role="cell" class="calendar-cell level-0 is-future" title="{{ d.date|date:'j F' }}: hasn’t happened yet">
+                      {% else %}<a role="cell" class="calendar-cell level-{{ d.level }}" href="{% url 'finance:day_detail' d.date.isoformat %}{% if daily_mode == 'calendar' %}?daily=calendar{% endif %}"
+                            title="{{ d.date|date:'j F' }}: {% if d.amount %}{{ d.amount|taka }} spent{% else %}no expenses{% endif %}">{% endif %}
                         <span class="calendar-day">{{ d.date.day }}</span>
                         {% if d.amount %}<span class="calendar-amount">{{ d.amount|floatformat:0 }}</span>{% endif %}
                         <span class="visually-hidden">{% if d.is_future %}, hasn’t happened yet{% elif d.amount %}, {{ d.amount|taka }} spent{% else %}, no expenses{% endif %}</span>
-                      </span>
+                      {% if d.is_future %}</span>{% else %}</a>{% endif %}
                     {% endif %}
                   {% endfor %}
                 </div>
@@ -150,15 +151,19 @@
                 {% for g in daily_chart.groups %}
                   <g class="day{% if g.is_future %} is-future{% endif %}">
                     <title>{{ g.title }}</title>
+                    {# Every day that has started opens its day page, even with nothing spent. #}
+                    {% if not g.is_future %}<a href="{% url 'finance:day_detail' g.date.isoformat %}{% if daily_mode == 'calendar' %}?daily=calendar{% endif %}" aria-label="{{ g.title }}. Open this day.">{% endif %}
                     <rect class="hit" x="{{ g.hit.x }}" y="0" width="{{ g.hit.w }}" height="{{ daily_chart.height }}" fill="transparent"/>
                     {% if g.h %}<rect class="{% if g.is_biggest %}bar-day-max{% else %}bar-day{% endif %}" x="{{ g.x }}" y="{{ g.y }}" width="{{ g.w }}" height="{{ g.h }}" rx="2"/>{% endif %}
                     {% if g.label %}<text class="month-label" x="{{ g.center }}" y="{{ daily_chart.label_y }}" text-anchor="middle">{{ g.label }}</text>{% endif %}
+                    {% if not g.is_future %}</a>{% endif %}
                   </g>
                 {% endfor %}
               </svg>
             </div>
           {% endif %}
           <p class="small muted" style="margin-top: var(--space-2)">
+            Tap a day to see its transactions.
             {% if daily.biggest %}Biggest day: {{ daily.biggest.date|date:"l j F" }}, {{ daily.biggest.amount|taka }}.{% else %}No expenses recorded this month.{% endif %}
             {{ daily.no_spend_days }} no-spend day{{ daily.no_spend_days|pluralize }}{% if s.is_current %} so far{% endif %}.
           </p>

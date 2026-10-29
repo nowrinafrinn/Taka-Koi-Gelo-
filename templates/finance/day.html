@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}{{ date|date:"j F Y" }} · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <p class="small"><a class="back-link" href="{{ month_url }}">← {{ date|date:"F Y" }}</a></p>
+
+  <div class="day-head">
+    {% url 'finance:day_detail' previous_day.isoformat as previous_url %}
+    <a class="button button-quiet" href="{{ previous_url }}{% if daily_mode == 'calendar' %}?daily=calendar{% endif %}"
+       aria-label="Previous day, {{ previous_day|date:'l j F' }}">← {{ previous_day|date:"D j" }}</a>
+    <h1>{{ date|date:"l, j F Y" }}{% if is_today %} <span class="pill">Today</span>{% endif %}</h1>
+    {% if next_day %}
+      {% url 'finance:day_detail' next_day.isoformat as next_url %}
+      <a class="button button-quiet" href="{{ next_url }}{% if daily_mode == 'calendar' %}?daily=calendar{% endif %}"
+         aria-label="Next day, {{ next_day|date:'l j F' }}">{{ next_day|date:"D j" }} →</a>
+    {% else %}<span></span>{% endif %}
+  </div>
+
+  <section class="stats day-stats" aria-label="Totals for this day">
+    <div class="stat"><span class="stat-label">Spent</span><strong class="stat-value">{{ spent|taka }}</strong></div>
+    <div class="stat"><span class="stat-label">Income</span><strong class="stat-value">{{ received|taka }}</strong></div>
+    <div class="stat"><span class="stat-label">To goals</span><strong class="stat-value">{{ to_goals|taka }}</strong></div>
+  </section>
+
+  {# Quick add with this day's date filled in; after saving you come back here. #}
+  {% with iso=date.isoformat %}
+    <div class="actions day-actions">
+      <a class="button button-expense" href="{% url 'finance:expense_create' %}?next=day&amp;date={{ iso }}{% if daily_mode == 'calendar' %}&amp;daily=calendar{% endif %}">− Add expense on {{ date|date:"j M" }}</a>
+      <a class="button" href="{% url 'finance:income_create' %}?next=day&amp;date={{ iso }}{% if daily_mode == 'calendar' %}&amp;daily=calendar{% endif %}">+ Add income on {{ date|date:"j M" }}</a>
+    </div>
+  {% endwith %}
+
+  <section class="panel" aria-labelledby="day-transactions">
+    <h2 id="day-transactions">{{ transactions|length }} transaction{{ transactions|length|pluralize }}</h2>
+    {% if transactions %}
+      <ul class="tx-list">
+        {% for t in transactions %}
+          {% include 'partials/transaction_row.html' with t=t compact=False return_to_day=True %}
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No transactions on {{ date|date:"j F" }}. Forgot something? Add it with the buttons above.</p>
+    {% endif %}
+  </section>
+
+  {% if contributions %}
+    <section class="panel" aria-labelledby="day-goals">
+      <h2 id="day-goals">Savings goals</h2>
+      <p class="small muted">Set aside for goals, kept separate from spending.</p>
+      <ul class="tx-list">
+        {% for c in contributions %}
+          <li class="tx tx-income">
+            <span class="tx-icon" aria-hidden="true">+</span>
+            <div class="tx-main">
+              <strong><a href="{% url 'finance:goal_detail' c.goal.pk %}">{{ c.goal.name }}</a></strong>
+              {% if c.note %}<span class="tx-note">{{ c.note }}</span>{% endif %}
+            </div>
+            <div class="tx-side"><span class="tx-amount">{{ c.amount|taka }}</span></div>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endblock %}

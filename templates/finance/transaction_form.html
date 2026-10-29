@@ -19,7 +19,7 @@
       {{ form }}
       <div class="form-buttons">
         <button type="submit" class="button {% if kind == 'expense' %}button-expense{% endif %}">Save</button>
-        <a href="{% if request.GET.next == 'dashboard' %}{% url 'finance:dashboard' %}{% else %}{% url 'finance:transaction_list' %}{% endif %}">Cancel</a>
+        <a href="{{ cancel_url }}">Cancel</a>
       </div>
     </form>
   </section>

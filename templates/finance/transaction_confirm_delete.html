@@ -18,7 +18,7 @@
       {% csrf_token %}
       <div class="form-buttons">
         <button type="submit" class="button button-danger">Yes, delete</button>
-        <a href="{% url 'finance:transaction_list' %}">Keep it</a>
+        <a href="{{ cancel_url }}">Keep it</a>
       </div>
     </form>
   </section>

@@ -1,7 +1,11 @@
+import datetime
+from decimal import Decimal
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
@@ -140,45 +144,118 @@ def transaction_list(request):
     })
 
 
+def parse_day(value, today):
+    """A real, non-future date from 'YYYY-MM-DD', else None."""
+    try:
+        day = datetime.date.fromisoformat(value or '')
+    except ValueError:
+        return None
+    return day if day <= today else None
+
+
+def day_url(day, daily_mode=None):
+    url = reverse('finance:day_detail', args=[day.isoformat()])
+    return f'{url}?daily=calendar' if daily_mode == 'calendar' else url
+
+
+def after_save_url(request, transaction):
+    """Where to go after saving or deleting. ?next only selects one of these
+    fixed destinations; the day comes from the transaction, never the URL."""
+    if request.GET.get('next') == 'day':
+        return day_url(transaction.date, request.GET.get('daily'))
+    return reverse('finance:transaction_list')
+
+
 @login_required
 @require_http_methods(['GET', 'POST'])
 def transaction_create(request, kind):
-    form = TransactionForm(request.POST or None, kind=kind, user=request.user)
+    today = timezone.localdate()
+    prefill = parse_day(request.GET.get('date'), today)
+    form = TransactionForm(request.POST or None, kind=kind, user=request.user,
+                           initial={'date': prefill} if prefill else None)
     if request.method == 'POST' and form.is_valid():
         transaction = form.save()
         messages.success(request, f'{transaction.get_kind_display()} of {taka(transaction.amount)} saved.')
         # Post/Redirect/Get: refreshing the next page never re-submits the form.
-        # Only a fixed value is accepted for ?next, so it can't redirect off-site.
+        # Only fixed values are accepted for ?next, so it can't redirect off-site.
         if request.GET.get('next') == 'dashboard':
             # Set only here, after the row is saved: a failed form never animates.
             request.session[WALLET_EVENT_KEY] = transaction.kind
             return redirect('finance:dashboard')
-        return redirect('finance:transaction_list')
-    return render(request, 'finance/transaction_form.html', {'form': form, 'kind': kind, 'is_edit': False})
+        return redirect(after_save_url(request, transaction))
+
+    if request.GET.get('next') == 'dashboard':
+        cancel_url = reverse('finance:dashboard')
+    elif request.GET.get('next') == 'day' and prefill:
+        cancel_url = day_url(prefill, request.GET.get('daily'))
+    else:
+        cancel_url = reverse('finance:transaction_list')
+    return render(request, 'finance/transaction_form.html',
+                  {'form': form, 'kind': kind, 'is_edit': False, 'cancel_url': cancel_url})
 
 
 @login_required
 @require_http_methods(['GET', 'POST'])
 def transaction_update(request, pk):
     transaction = get_own_transaction(request, pk)
+    # Worked out before the form runs: validating a form updates the instance
+    # in memory, and Cancel should go back to the day the user came from.
+    cancel_url = after_save_url(request, transaction)
     form = TransactionForm(request.POST or None, instance=transaction, kind=transaction.kind, user=request.user)
     if request.method == 'POST' and form.is_valid():
         form.save()
         messages.success(request, 'Changes saved.')
-        return redirect('finance:transaction_list')
-    return render(request, 'finance/transaction_form.html', {'form': form, 'kind': transaction.kind, 'is_edit': True})
+        # If the date was changed, the day page for the new date is shown.
+        return redirect(after_save_url(request, transaction))
+    return render(request, 'finance/transaction_form.html',
+                  {'form': form, 'kind': transaction.kind, 'is_edit': True, 'cancel_url': cancel_url})
 
 
 @login_required
 @require_http_methods(['GET', 'POST'])
 def transaction_delete(request, pk):
     transaction = get_own_transaction(request, pk)
+    back = after_save_url(request, transaction)
     if request.method == 'POST':
         transaction.delete()
         messages.success(request, 'Transaction deleted.')
-        return redirect('finance:transaction_list')
+        return redirect(back)
     # GET only shows a confirmation page; nothing is deleted.
-    return render(request, 'finance/transaction_confirm_delete.html', {'transaction': transaction})
+    return render(request, 'finance/transaction_confirm_delete.html', {'transaction': transaction, 'cancel_url': back})
+
+
+@login_required
+def day_detail(request, day):
+    """Everything recorded on one day, with previous/next day navigation."""
+    today = timezone.localdate()
+    date = day   # already a date: the URL converter only accepts real YYYY-MM-DD dates
+    daily_mode = 'calendar' if request.GET.get('daily') == 'calendar' else 'bars'
+    if date > today:
+        return redirect(day_url(today, daily_mode))
+
+    transactions = list(request.user.transactions.filter(date=date).order_by('created_at'))
+    contributions = list(
+        GoalContribution.objects.filter(goal__user=request.user, date=date).select_related('goal').order_by('created_at')
+    )
+    expenses = [t for t in transactions if t.kind == Transaction.Kind.EXPENSE]
+    income = [t for t in transactions if t.kind == Transaction.Kind.INCOME]
+    month_url = f"{reverse('finance:stats')}?view=month&year={date.year}&month={date.month}"
+    if daily_mode == 'calendar':
+        month_url += '&daily=calendar'
+    following = date + datetime.timedelta(days=1)
+    return render(request, 'finance/day.html', {
+        'date': date,
+        'is_today': date == today,
+        'daily_mode': daily_mode,
+        'transactions': transactions,
+        'contributions': contributions,
+        'spent': services.money(sum((t.amount for t in expenses), Decimal('0'))),
+        'received': services.money(sum((t.amount for t in income), Decimal('0'))),
+        'to_goals': services.money(sum((c.amount for c in contributions), Decimal('0'))),
+        'previous_day': date - datetime.timedelta(days=1),
+        'next_day': following if following <= today else None,
+        'month_url': month_url,
+    })
 
 
 # ---------------------------------------------------------------------------

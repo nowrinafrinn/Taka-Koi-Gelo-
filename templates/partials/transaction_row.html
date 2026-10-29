@@ -16,8 +16,8 @@
     </span>
     {% if not compact %}
       <span class="tx-links">
-        <a href="{% url 'finance:transaction_update' t.pk %}">Edit<span class="visually-hidden"> {{ t.get_category_display }} on {{ t.date|date:"j M" }}</span></a>
-        <a href="{% url 'finance:transaction_delete' t.pk %}">Delete<span class="visually-hidden"> {{ t.get_category_display }} on {{ t.date|date:"j M" }}</span></a>
+        <a href="{% url 'finance:transaction_update' t.pk %}{% if return_to_day %}?next=day{% if daily_mode == 'calendar' %}&amp;daily=calendar{% endif %}{% endif %}">Edit<span class="visually-hidden"> {{ t.get_category_display }} on {{ t.date|date:"j M" }}</span></a>
+        <a href="{% url 'finance:transaction_delete' t.pk %}{% if return_to_day %}?next=day{% if daily_mode == 'calendar' %}&amp;daily=calendar{% endif %}{% endif %}">Delete<span class="visually-hidden"> {{ t.get_category_display }} on {{ t.date|date:"j M" }}</span></a>
       </span>
     {% endif %}
   </div>

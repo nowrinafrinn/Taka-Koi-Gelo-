@@ -1,7 +1,9 @@
-from django.urls import path
+from django.urls import path, register_converter
 
-from . import views
+from . import converters, views
 from .models import Transaction
+
+register_converter(converters.IsoDateConverter, 'isodate')
 
 app_name = 'finance'
 
@@ -10,6 +12,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('budget/', views.budget_edit, name='budget_edit'),
     path('stats/', views.stats, name='stats'),
+    path('stats/day/<isodate:day>/', views.day_detail, name='day_detail'),
     path('transactions/', views.transaction_list, name='transaction_list'),
     # The kind is fixed by the URL, not by a form field the user could edit.
     path('transactions/add/income/', views.transaction_create, {'kind': Transaction.Kind.INCOME}, name='income_create'),
