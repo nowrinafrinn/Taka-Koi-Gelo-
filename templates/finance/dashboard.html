@@ -65,65 +65,115 @@
     </div>
   </section>
 
-  <section class="panel budget budget-{{ summary.budget.state|default:'none' }}" aria-labelledby="budget-title">
+  <div class="two-col dash-row">
+    <section class="panel allowance" aria-labelledby="allowance-title">
+      <h2 id="allowance-title">Safe to spend per day</h2>
+      {% with b=summary.budget %}
+        {% if not b %}
+          <p class="muted">Set a monthly budget to see how much you can spend each day.</p>
+          <a class="button button-quiet" href="{% url 'finance:budget_edit' %}">Set budget</a>
+        {% elif b.state == 'over' %}
+          <p class="allowance-value negative">৳0.00</p>
+          <p class="small">You’re {{ b.overspent|taka }} over this month’s budget.</p>
+        {% else %}
+          <p class="allowance-value">{{ b.daily_allowance|taka }}</p>
+          <p class="small muted">{{ b.remaining|taka }} of the budget left · {{ b.days_left }} day{{ b.days_left|pluralize }} to go, including today</p>
+        {% endif %}
+      {% endwith %}
+    </section>
+
+    <section class="panel budget budget-{{ summary.budget.state|default:'none' }}" aria-labelledby="budget-title">
+      <div class="panel-head">
+        <h2 id="budget-title">
+          {{ summary.month_start|date:"F" }} budget
+          {% if summary.budget.state == 'warning' %}<span class="pill">Close to limit</span>
+          {% elif summary.budget.state == 'over' %}<span class="pill">Over</span>{% endif %}
+        </h2>
+        <a href="{% url 'finance:budget_edit' %}">{% if summary.budget %}Change{% else %}Set budget{% endif %}</a>
+      </div>
+      {% with b=summary.budget %}
+        {% if b %}
+          <div class="budget-figures">
+            <strong>{{ b.spent|taka }}</strong>
+            <span class="muted">of {{ b.limit|taka }} · {{ b.used_percent }}% used</span>
+          </div>
+          <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+               aria-valuenow="{{ b.bar_percent|stringformat:'d' }}" aria-label="Budget used">
+            <span style="width: {{ b.bar_percent|stringformat:'s' }}%"></span>
+          </div>
+          <p class="budget-remaining">
+            {% if b.state == 'over' %}Over budget by <strong>{{ b.overspent|taka }}</strong>
+            {% else %}<strong>{{ b.remaining|taka }}</strong> remaining{% endif %}
+          </p>
+        {% else %}
+          <p class="muted">No budget for this month yet. Set a limit to see how much you can still spend.</p>
+        {% endif %}
+      {% endwith %}
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="pace-title">
     <div class="panel-head">
-      <h2 id="budget-title">
-        {{ summary.month_start|date:"F" }} budget
-        {% if summary.budget.state == 'warning' %}<span class="pill">Close to limit</span>
-        {% elif summary.budget.state == 'over' %}<span class="pill">Over</span>{% endif %}
-      </h2>
-      <a href="{% url 'finance:budget_edit' %}">{% if summary.budget %}Change{% else %}Set budget{% endif %}</a>
+      <h2 id="pace-title">Spending pace</h2>
+      {% if pace.status == 'faster' %}<span class="tag tag-deficit">Faster than budget pace</span>
+      {% elif pace.status == 'within' %}<span class="tag tag-surplus">Within budget pace</span>{% endif %}
     </div>
-    {% with b=summary.budget %}
-      {% if b %}
-        <div class="budget-figures">
-          <strong>{{ b.spent|taka }}</strong>
-          <span class="muted">of {{ b.limit|taka }} · {{ b.used_percent }}% used</span>
-        </div>
-        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
-             aria-valuenow="{{ b.bar_percent|stringformat:'d' }}" aria-label="Budget used">
-          <span style="width: {{ b.bar_percent|stringformat:'s' }}%"></span>
-        </div>
-        <p class="budget-remaining">
-          {% if b.state == 'over' %}
-            Over budget by <strong>{{ b.overspent|taka }}</strong>
-          {% else %}
-            <strong>{{ b.remaining|taka }}</strong> remaining
-            · {{ b.days_left }} day{{ b.days_left|pluralize }} left in {{ summary.month_start|date:"F" }}
-          {% endif %}
-        </p>
-      {% else %}
-        <p class="muted">No budget for this month yet. Set a limit to see how much you can still spend.</p>
-      {% endif %}
-    {% endwith %}
+    {% if not pace.has_data %}
+      <p class="muted">Your running total for {{ summary.month_start|date:"F" }} will appear here as you add expenses.</p>
+    {% else %}
+      <ul class="chart-legend" aria-hidden="true">
+        <li><span class="line-key line-current"></span>{{ summary.month_start|date:"F" }}</li>
+        {% if pace_chart.budget %}<li><span class="line-key line-budget"></span>Even budget pace</li>{% endif %}
+        {% if pace_chart.previous %}<li><span class="line-key line-previous"></span>Last month</li>{% endif %}
+      </ul>
+      <div class="chart-wrap">
+        <svg class="bar-chart pace-chart" viewBox="0 0 {{ pace_chart.width }} {{ pace_chart.height }}" role="img"
+             aria-label="Running total of spending by day this month{% if pace_chart.budget %}, compared with an even pace through the budget{% endif %}{% if pace_chart.previous %} and with last month{% endif %}. The figures are written below the chart.">
+          {% for line in pace_chart.grid %}
+            <line class="grid-line" x1="{{ pace_chart.left }}" x2="{{ pace_chart.right_edge }}" y1="{{ line.y }}" y2="{{ line.y }}"/>
+            <text class="axis-label" x="{{ pace_chart.axis_x }}" y="{{ line.y }}" text-anchor="end" dominant-baseline="middle">{{ line.label }}</text>
+          {% endfor %}
+          {% for d in pace_chart.days %}
+            <text class="axis-label" x="{{ d.x }}" y="{{ pace_chart.label_y }}" text-anchor="middle">{{ d.label }}</text>
+          {% endfor %}
+          {% if pace_chart.previous %}<polyline class="pace-previous" points="{{ pace_chart.previous }}"/>{% endif %}
+          {% if pace_chart.budget %}<line class="pace-budget" x1="{{ pace_chart.budget.x1 }}" y1="{{ pace_chart.budget.y1 }}" x2="{{ pace_chart.budget.x2 }}" y2="{{ pace_chart.budget.y2 }}"/>{% endif %}
+          <polyline class="pace-current" points="{{ pace_chart.current }}"/>
+          <line class="pace-today" x1="{{ pace_chart.today_x }}" x2="{{ pace_chart.today_x }}" y1="{{ pace_chart.top }}" y2="{{ pace_chart.baseline }}"/>
+          <circle class="pace-dot" cx="{{ pace_chart.today_x }}" cy="{{ pace_chart.today_y }}" r="6"/>
+        </svg>
+      </div>
+      <p class="small muted" style="margin-top: var(--space-2)">
+        Day {{ pace.day }}: {{ pace.spent|taka }} spent.
+        {% if pace.even_pace_today is not None %}An even pace through your budget would be {{ pace.even_pace_today|taka }}.{% endif %}
+        {% if pace.previous_same_day is not None %}Last month you had spent {{ pace.previous_same_day|taka }} by this day.{% endif %}
+      </p>
+    {% endif %}
   </section>
 
-  {% if summary.insights %}
-    <section class="panel" aria-labelledby="insights-title">
-      <h2 id="insights-title">What we noticed <span class="muted" lang="bn">· হিসাব বলছে</span></h2>
-      <ul class="insights">
-        {% for insight in summary.insights %}<li>{{ insight }}</li>{% endfor %}
-      </ul>
-    </section>
-  {% endif %}
-
   <div class="two-col">
-    <section class="panel" aria-labelledby="categories-title">
-      <h2 id="categories-title">Where it went in {{ summary.month_start|date:"F" }}</h2>
-      {% if summary.categories %}
-        <ul class="category-bars">
-          {% for c in summary.categories %}
+    <section class="panel" aria-labelledby="goals-title">
+      <div class="panel-head">
+        <h2 id="goals-title">Goals</h2>
+        <a href="{% url 'finance:goal_list' %}">{% if goals %}All goals{% else %}Create a goal{% endif %}</a>
+      </div>
+      {% if goals %}
+        <ul class="mini-goals">
+          {% for p in goals %}
             <li>
               <div class="category-row">
-                <span>{{ c.label }}</span>
-                <span><span class="num">{{ c.total|taka }}</span> <span class="muted small">· {{ c.percent }}%</span></span>
+                <a href="{% url 'finance:goal_detail' p.goal.pk %}">{{ p.goal.name }}</a>
+                <span class="muted small">{{ p.percent }}%</span>
               </div>
-              <div class="bar bar-thin" aria-hidden="true"><span style="width: {{ c.percent|stringformat:'s' }}%"></span></div>
+              <div class="bar bar-thin" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+                   aria-valuenow="{{ p.bar_percent|stringformat:'d' }}" aria-label="Progress towards {{ p.goal.name }}">
+                <span style="width: {{ p.bar_percent|stringformat:'s' }}%"></span>
+              </div>
             </li>
           {% endfor %}
         </ul>
       {% else %}
-        <p class="muted">No spending recorded in {{ summary.month_start|date:"F" }} yet.</p>
+        <p class="muted">No goals in progress. Saving for something? Set a goal and track it here.</p>
       {% endif %}
     </section>
 
@@ -143,4 +193,8 @@
       {% endif %}
     </section>
   </div>
+
+  <p class="small muted" style="text-align:center; margin-top: var(--space-4)">
+    Where it went, month reports and trends are in <a href="{% url 'finance:stats' %}">Stats</a>.
+  </p>
 {% endblock %}

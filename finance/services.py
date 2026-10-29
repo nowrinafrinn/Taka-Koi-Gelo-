@@ -75,6 +75,14 @@ class BudgetStatus:
         """Progress-bar width, capped at 100 so the bar never overflows."""
         return min(self.used_percent, Decimal('100'))
 
+    @property
+    def daily_allowance(self):
+        """Budget left / days left (including today), rounded down so it never
+        overstates what can be spent. 0 when nothing is left."""
+        if self.remaining <= 0:
+            return ZERO
+        return (self.remaining / self.days_left).quantize(CENT, rounding=ROUND_DOWN)
+
 
 @dataclass
 class DashboardSummary:
@@ -139,7 +147,7 @@ def build_insights(summary):
         elif budget.remaining == 0:
             insights.append('You have used your whole budget for this month.')
         else:
-            per_day = (budget.remaining / budget.days_left).quantize(CENT, rounding=ROUND_DOWN)
+            per_day = budget.daily_allowance
             day_word = 'day' if budget.days_left == 1 else 'days'
             insights.append(
                 f'{taka(budget.remaining)} left for {budget.days_left} {day_word}: '
@@ -731,4 +739,81 @@ def get_spending_report(user, report):
     return SpendingReport(
         spending=_spending_insights(stat, report.categories, previous_start, previous_expenses),
         savings=_savings_insights(stat, previous_start, previous_contributions),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Spending pace (dashboard)
+# ---------------------------------------------------------------------------
+# Running total of this month's expenses by day, compared with an even pace
+# through the budget (limit x day / days in month) and with last month's
+# running total. No projection: only what has been recorded.
+
+
+@dataclass
+class SpendingPace:
+    today: datetime.date
+    days_in_month: int
+    current: list[Decimal]          # running total for days 1..today
+    previous: list[Decimal]         # running total for every day of last month
+    budget_limit: Decimal | None
+
+    @property
+    def day(self):
+        return self.today.day
+
+    @property
+    def spent(self):
+        return self.current[-1] if self.current else ZERO
+
+    @property
+    def even_pace_today(self):
+        if self.budget_limit is None:
+            return None
+        return (self.budget_limit * self.day / self.days_in_month).quantize(CENT, rounding=ROUND_HALF_UP)
+
+    @property
+    def previous_same_day(self):
+        """Last month's running total on the same day number (capped at its last
+        day), or None when nothing was spent last month (nothing to compare)."""
+        if not any(self.previous):
+            return None
+        return self.previous[min(self.day, len(self.previous)) - 1]
+
+    @property
+    def status(self):
+        """'faster' or 'within' the even budget pace; None without a budget."""
+        if self.budget_limit is None:
+            return None
+        return 'faster' if self.spent > self.even_pace_today else 'within'
+
+    @property
+    def has_data(self):
+        return bool(self.spent) or any(self.previous)
+
+
+def _running_totals(user, start, end):
+    """Running total of expenses for each day start..end. One query."""
+    per_day = dict(
+        Transaction.objects.filter(user=user, kind=Transaction.Kind.EXPENSE, date__range=(start, end))
+        .values('date').annotate(total=Sum('amount')).values_list('date', 'total')
+    )
+    totals, running = [], ZERO
+    for offset in range((end - start).days + 1):
+        running += money(per_day.get(start + datetime.timedelta(days=offset)))
+        totals.append(running)
+    return totals
+
+
+def get_spending_pace(user, budget_limit=None, today=None):
+    """This month up to today vs last month, as running totals. Two queries."""
+    today = today or timezone.localdate()
+    start, end = month_bounds(today)
+    previous_start, previous_end = month_bounds(add_months(start, -1))
+    return SpendingPace(
+        today=today,
+        days_in_month=end.day,
+        current=_running_totals(user, start, today),
+        previous=_running_totals(user, previous_start, previous_end),
+        budget_limit=budget_limit,
     )

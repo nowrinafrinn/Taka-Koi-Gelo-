@@ -32,7 +32,14 @@ def dashboard(request):
     # refresh or a later visit never replays it.
     event = request.session.pop(WALLET_EVENT_KEY, None)
     set_aside = services.total_set_aside(request.user)
+    pace = services.get_spending_pace(
+        request.user, summary.budget.limit if summary.budget else None, summary.today,
+    )
+    active_goals, _ = services.goals_with_progress(request.user, summary.today)
     return render(request, 'finance/dashboard.html', {
+        'pace': pace,
+        'pace_chart': charts.pace_chart(pace),
+        'goals': active_goals[:3],
         'summary': summary,
         'wallet': services.wallet_visuals(summary, event),
         # Shown next to the balance, never subtracted from it (no double counting).

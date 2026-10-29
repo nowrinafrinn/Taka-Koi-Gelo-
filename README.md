@@ -33,12 +33,14 @@ about the numbers, and a little playful.
 - **Accounts:** sign up, log in and log out with Django's built-in authentication. Every record is private to its owner.
 - **Income and expenses:** add, edit and delete. Kind-specific categories (Pocket money, Tuition… / Food, Transport…), payment methods including bKash, Nagad and Rocket, a date and an optional note.
 - **Filters:** by type, category and date range. Filtered views have bookmarkable URLs and paginate.
-- **Dashboard:**
-  - all-time available balance;
-  - this month's income and spending;
-  - spending by category;
-  - recent transactions;
-  - a few factual insights (top category, daily allowance left, monthly net).
+- **Dashboard ("right now"):**
+  - the all-time available balance and this month's income and spending;
+  - **safe to spend per day**: budget left ÷ days left, rounded down;
+  - the budget card;
+  - a **spending pace** line chart: this month's running total against an even pace through the budget and against last month (no projections);
+  - goal progress and recent transactions.
+
+  Category breakdowns and reports live on the Stats page.
 - **Monthly budget:** limit, amount used, remaining (negative when over), and warnings at 80% and when over.
 - **Money insights (`/stats/`):**
   - **Month view:** income, expenses, surplus/deficit, the budget, and spending by category for any month, with previous/next links.
@@ -211,7 +213,7 @@ Open <http://127.0.0.1:8010>. On macOS or Linux, use `.venv/bin/python`.
 .venv\Scripts\python.exe -m coverage report
 ```
 
-**251 tests, 99% line coverage.** The only uncovered lines are
+**268 tests, 99% line coverage.** The only uncovered lines are
 production-only settings, which `check --deploy` verifies. The tests cover:
 
 - **Calculations:** empty data, zero values, negative balance, overspending, Decimal precision (1,000 × ৳0.10 = ৳100.00), and month boundaries including leap years and the Dhaka-midnight case.

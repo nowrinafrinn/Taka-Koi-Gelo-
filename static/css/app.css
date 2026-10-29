@@ -574,6 +574,21 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--da
 .period-head .period-step:last-child { justify-self: end; }
 .stat-value.muted { font-size: 1.15rem; color: var(--ink-muted); }
 
+/* ---------- Dashboard: allowance and pace ---------- */
+.dash-row { margin-bottom: var(--space-4); }
+.allowance-value { font-family: var(--font-display); font-size: 2.1rem; font-weight: 700; margin: var(--space-1) 0; font-variant-numeric: tabular-nums; }
+.allowance-value.negative { color: var(--danger); }
+.pace-chart polyline, .pace-chart .pace-budget { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.pace-chart .pace-current { stroke: var(--spend); stroke-width: 3.5; }
+.pace-chart .pace-previous { stroke: var(--ink-muted); stroke-width: 2; opacity: 0.55; }
+.pace-chart .pace-budget { stroke: var(--ink-muted); stroke-width: 2; stroke-dasharray: 8 7; }
+.pace-chart .pace-today { stroke: var(--line); stroke-width: 1.5; }
+.pace-chart .pace-dot { fill: var(--spend); stroke: var(--surface); stroke-width: 3; }
+.line-key { display: inline-block; width: 18px; height: 0; border-top: 3px solid var(--spend); }
+.line-key.line-budget { border-top: 2px dashed var(--ink-muted); }
+.line-key.line-previous { border-top: 2px solid var(--ink-muted); opacity: 0.55; }
+.mini-goals { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+
 /* ---------- Monthly report ---------- */
 .report-groups { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .report-heading { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); margin: 0 0 var(--space-2); }

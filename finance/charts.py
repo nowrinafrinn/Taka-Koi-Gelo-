@@ -99,3 +99,58 @@ def bar_chart(months):
         'grid': grid,
         'groups': groups,
     }
+
+
+# ---------------------------------------------------------------------------
+# Spending pace line chart (dashboard)
+# ---------------------------------------------------------------------------
+PACE_WIDTH = 720
+PACE_HEIGHT = 260
+PACE_LEFT = 92
+PACE_RIGHT = 16
+PACE_TOP = 22
+PACE_BOTTOM = 40
+
+
+def pace_chart(pace):
+    """SVG coordinates for running totals by day. Day 0 (start of month) is ৳0."""
+    plot_w = PACE_WIDTH - PACE_LEFT - PACE_RIGHT
+    plot_h = PACE_HEIGHT - PACE_TOP - PACE_BOTTOM
+    baseline = PACE_TOP + plot_h
+    candidates = [pace.spent] + pace.previous[-1:] + ([pace.budget_limit] if pace.budget_limit else [])
+    top = nice_ceiling(max(candidates))
+
+    def x(day):
+        return PACE_LEFT + plot_w * day / pace.days_in_month
+
+    def y(amount):
+        return baseline - float(amount / top) * plot_h
+
+    def points(totals):
+        days = [(0, 0)] + [(i + 1, v) for i, v in enumerate(totals[:pace.days_in_month])]
+        return ' '.join(f'{x(d):.1f},{y(v):.1f}' for d, v in days)
+
+    labels = sorted({1, 10, 20, pace.days_in_month})
+    chart = {
+        'width': PACE_WIDTH,
+        'height': PACE_HEIGHT,
+        'left': PACE_LEFT,
+        'right_edge': PACE_WIDTH - PACE_RIGHT,
+        'axis_x': PACE_LEFT - 10,
+        'top': PACE_TOP,
+        'baseline': baseline,
+        'label_y': baseline + 24,
+        'grid': [
+            {'y': baseline - plot_h * fraction, 'label': axis_label(top * Decimal(str(fraction)))}
+            for fraction in (0, 0.5, 1)
+        ],
+        'days': [{'x': x(d), 'label': d} for d in labels],
+        'current': points(pace.current),
+        'previous': points(pace.previous) if any(pace.previous) else '',
+        'today_x': x(pace.day),
+        'today_y': y(pace.spent),
+        'budget': None,
+    }
+    if pace.budget_limit:
+        chart['budget'] = {'x1': x(0), 'y1': y(0), 'x2': x(pace.days_in_month), 'y2': y(pace.budget_limit)}
+    return chart
