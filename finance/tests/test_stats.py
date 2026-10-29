@@ -156,12 +156,12 @@ class YearComparisonTests(TestCase):
         t.delete()
         self.assertEqual(self.year().total_expenses, D('0.00'))
 
-    def test_two_queries_whatever_the_data_size(self):
+    def test_three_queries_whatever_the_data_size(self):
         for month in range(1, 11):
             add(self.user, 'income', '100', datetime.date(2026, month, 3))
             add(self.user, 'expense', '60', datetime.date(2026, month, 4))
             MonthlyBudget.objects.create(user=self.user, month=datetime.date(2026, month, 1), limit=D('80'))
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(3):   # transactions, budgets, goal contributions
             self.year()
 
 
@@ -203,9 +203,9 @@ class MonthReportTests(TestCase):
         add(self.user, 'expense', '500', datetime.date(2026, 10, 2))
         self.assertTrue(self.report().stat.over_budget)
 
-    def test_three_queries(self):
+    def test_four_queries(self):
         add(self.user, 'expense', '10', datetime.date(2026, 10, 2))
-        with self.assertNumQueries(3):
+        with self.assertNumQueries(4):   # totals, categories, budget, goal contributions
             self.report()
 
     def test_first_transaction_year(self):

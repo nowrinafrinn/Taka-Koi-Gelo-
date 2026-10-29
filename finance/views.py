@@ -6,8 +6,10 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from . import charts, services
-from .forms import BudgetForm, StatsPeriodForm, TransactionFilterForm, TransactionForm
-from .models import MonthlyBudget, Transaction
+from .forms import (
+    BudgetForm, GoalContributionForm, SavingsGoalForm, StatsPeriodForm, TransactionFilterForm, TransactionForm,
+)
+from .models import GoalContribution, MonthlyBudget, SavingsGoal, Transaction
 from .templatetags.money import taka
 
 PAGE_SIZE = 20
@@ -29,9 +31,13 @@ def dashboard(request):
     # pop(): the save animation plays once, then the flag is gone, so a
     # refresh or a later visit never replays it.
     event = request.session.pop(WALLET_EVENT_KEY, None)
+    set_aside = services.total_set_aside(request.user)
     return render(request, 'finance/dashboard.html', {
         'summary': summary,
         'wallet': services.wallet_visuals(summary, event),
+        # Shown next to the balance, never subtracted from it (no double counting).
+        'set_aside': set_aside,
+        'not_set_aside': summary.balance - set_aside,
     })
 
 
@@ -150,3 +156,107 @@ def transaction_delete(request, pk):
         return redirect('finance:transaction_list')
     # GET only shows a confirmation page; nothing is deleted.
     return render(request, 'finance/transaction_confirm_delete.html', {'transaction': transaction})
+
+
+# ---------------------------------------------------------------------------
+# Savings goals
+# ---------------------------------------------------------------------------
+
+def get_own_goal(request, pk):
+    """Another user's goal gives 404, exactly like a missing one."""
+    return get_object_or_404(SavingsGoal, pk=pk, user=request.user)
+
+
+def get_own_contribution(request, pk):
+    """Ownership is checked through the goal: contribution.goal.user."""
+    return get_object_or_404(GoalContribution.objects.select_related('goal'), pk=pk, goal__user=request.user)
+
+
+@login_required
+def goal_list(request):
+    active, completed = services.goals_with_progress(request.user)
+    return render(request, 'finance/goals/list.html', {'active': active, 'completed': completed})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def goal_create(request):
+    form = SavingsGoalForm(request.POST or None, user=request.user)
+    if request.method == 'POST' and form.is_valid():
+        goal = form.save()
+        messages.success(request, f'Goal “{goal.name}” created.')
+        return redirect('finance:goal_detail', pk=goal.pk)
+    return render(request, 'finance/goals/goal_form.html', {'form': form, 'is_edit': False})
+
+
+@login_required
+def goal_detail(request, pk):
+    goal = get_own_goal(request, pk)
+    return render(request, 'finance/goals/detail.html', {
+        'progress': services.goal_progress(goal),
+        'contributions': goal.contributions.all(),
+        'form': GoalContributionForm(goal=goal),
+    })
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def goal_update(request, pk):
+    goal = get_own_goal(request, pk)
+    form = SavingsGoalForm(request.POST or None, instance=goal, user=request.user)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Goal updated.')
+        return redirect('finance:goal_detail', pk=goal.pk)
+    return render(request, 'finance/goals/goal_form.html', {'form': form, 'is_edit': True, 'goal': goal})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def goal_delete(request, pk):
+    goal = get_own_goal(request, pk)
+    if request.method == 'POST':
+        goal.delete()   # its contributions are deleted with it (CASCADE)
+        messages.success(request, f'Goal “{goal.name}” deleted.')
+        return redirect('finance:goal_list')
+    return render(request, 'finance/goals/goal_confirm_delete.html', {
+        'progress': services.goal_progress(goal),
+        'contribution_count': goal.contributions.count(),
+    })
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def contribution_create(request, pk):
+    goal = get_own_goal(request, pk)
+    form = GoalContributionForm(request.POST or None, goal=goal)
+    if request.method == 'POST' and form.is_valid():
+        contribution = form.save()
+        messages.success(request, f'{taka(contribution.amount)} added to “{goal.name}”.')
+        return redirect('finance:goal_detail', pk=goal.pk)
+    return render(request, 'finance/goals/contribution_form.html', {'form': form, 'goal': goal, 'is_edit': False})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def contribution_update(request, pk):
+    contribution = get_own_contribution(request, pk)
+    form = GoalContributionForm(request.POST or None, instance=contribution, goal=contribution.goal)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Contribution updated.')
+        return redirect('finance:goal_detail', pk=contribution.goal.pk)
+    return render(request, 'finance/goals/contribution_form.html',
+                  {'form': form, 'goal': contribution.goal, 'is_edit': True})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def contribution_delete(request, pk):
+    contribution = get_own_contribution(request, pk)
+    if request.method == 'POST':
+        goal_pk = contribution.goal.pk
+        contribution.delete()
+        messages.success(request, 'Contribution deleted.')
+        return redirect('finance:goal_detail', pk=goal_pk)
+    return render(request, 'finance/goals/contribution_confirm_delete.html', {'contribution': contribution})

@@ -181,6 +181,8 @@ a:hover { color: var(--note-strong); }
 /* Tablet / small laptop: the inline nav (4 links) needs the room. */
 @media (min-width: 720px) and (max-width: 1023px) {
   .brand-bn, .header-user { display: none; }
+  .main-nav a svg { display: none; }       /* five text links still fit */
+  .main-nav a { padding: var(--space-2); }
 }
 
 /* Primary nav: bottom tab bar on phones, inline in the header on desktop. */
@@ -200,6 +202,7 @@ a:hover { color: var(--note-strong); }
 .main-nav a svg { width: 22px; height: 22px; }
 .main-nav a[aria-current="page"] { color: var(--note); }
 .main-nav a.nav-add { color: var(--spend); }
+.main-nav a.nav-desktop-only { display: none; }   /* Budget: reachable from the dashboard card on phones */
 
 @media (min-width: 720px) {
   body { padding-bottom: 0; }
@@ -215,6 +218,7 @@ a:hover { color: var(--note-strong); }
   .main-nav a:hover { background: var(--surface-2); color: var(--ink); }
   .main-nav a[aria-current="page"] { background: var(--surface-2); color: var(--ink); }
   .main-nav a.nav-add { display: none; }  /* desktop has the add buttons on the page */
+  .main-nav a.nav-desktop-only { display: flex; }
 }
 
 /* ---------- Buttons ---------- */
@@ -569,6 +573,23 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--da
 .period-head .period-step { font-size: 0.9rem; min-height: 44px; display: inline-flex; align-items: center; }
 .period-head .period-step:last-child { justify-self: end; }
 .stat-value.muted { font-size: 1.15rem; color: var(--ink-muted); }
+
+/* ---------- Savings goals ---------- */
+.goal-section { margin-bottom: var(--space-5); }
+.section-title { font-size: 1rem; color: var(--ink-muted); margin-bottom: var(--space-3); }
+.goal-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.goal-grid .panel { margin-bottom: 0; }
+.goal-card h2 { font-size: 1.05rem; }
+.goal-card h2 a { color: var(--ink); text-decoration: none; }
+.goal-card h2 a:hover { text-decoration: underline; }
+.goal-figures { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; margin-bottom: var(--space-2); }
+.goal-figures strong { font-size: 1.35rem; font-family: var(--font-display); }
+.goal-meta { margin: var(--space-2) 0 0; }
+.goal-card.is-complete .bar > span { background: var(--coin); }
+.stacked-form > div:not(.form-buttons) { margin-bottom: var(--space-3); }
+.stacked-form label { display: block; font-weight: 600; margin-bottom: var(--space-1); }
+.on-note-link { color: inherit; text-decoration: underline; }
+.on-note-link:hover { color: inherit; }
 
 /* ---------- Pagination ---------- */
 .pagination { display: flex; gap: var(--space-4); justify-content: center; align-items: center; margin-top: var(--space-4); }

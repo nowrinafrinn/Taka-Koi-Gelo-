@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}Edit goal{% else %}New goal{% endif %} · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <section class="form-card">
+    <h1>{% if is_edit %}Edit goal{% else %}New savings goal{% endif %}</h1>
+    <p class="lede">What are you saving for, and how much do you need?</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form }}
+      <div class="form-buttons">
+        <button type="submit" class="button">{% if is_edit %}Save changes{% else %}Create goal{% endif %}</button>
+        <a href="{% if is_edit %}{% url 'finance:goal_detail' goal.pk %}{% else %}{% url 'finance:goal_list' %}{% endif %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

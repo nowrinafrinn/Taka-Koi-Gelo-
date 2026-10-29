@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}{{ progress.goal.name }} · Savings goals · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <p class="small"><a href="{% url 'finance:goal_list' %}">← All goals</a></p>
+  <div class="page-head">
+    <h1>{{ progress.goal.name }}</h1>
+    <div class="actions">
+      <a class="button button-quiet" href="{% url 'finance:goal_update' progress.goal.pk %}">Edit goal</a>
+      <a class="button button-quiet" href="{% url 'finance:goal_delete' progress.goal.pk %}">Delete</a>
+    </div>
+  </div>
+
+  <section class="stats" aria-label="Goal progress">
+    <div class="stat">
+      <span class="stat-label">Contributed</span>
+      <strong class="stat-value">{{ progress.contributed|taka }}</strong>
+      <span class="muted small">{{ progress.percent }}% of {{ progress.target|taka }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Remaining</span>
+      {% if progress.is_complete %}
+        <strong class="stat-value">Done</strong>
+        <span class="small"><span class="tag tag-surplus">Completed</span></span>
+      {% else %}
+        <strong class="stat-value">{{ progress.remaining|taka }}</strong>
+        {% if progress.goal.target_date %}
+          <span class="muted small">
+            {% if progress.is_overdue %}<span class="tag tag-deficit">Target date passed</span>{% endif %}
+            Target date {{ progress.goal.target_date|date:"j M Y" }}
+          </span>
+        {% endif %}
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="panel">
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+         aria-valuenow="{{ progress.bar_percent|stringformat:'d' }}" aria-label="Progress towards {{ progress.goal.name }}">
+      <span style="width: {{ progress.bar_percent|stringformat:'s' }}%"></span>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <section class="panel" aria-labelledby="add-title">
+      <h2 id="add-title">Add a contribution</h2>
+      <form method="post" action="{% url 'finance:contribution_create' progress.goal.pk %}" class="stacked-form" novalidate>
+        {% csrf_token %}
+        {{ form }}
+        <div class="form-buttons"><button type="submit" class="button">Add</button></div>
+      </form>
+      <p class="muted small">Contributions are kept separate from expenses: they don’t change your spending, budget or surplus/deficit.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="history-title">
+      <h2 id="history-title">Contributions</h2>
+      {% if contributions %}
+        <ul class="tx-list">
+          {% for c in contributions %}
+            <li class="tx tx-income">
+              <span class="tx-icon" aria-hidden="true">+</span>
+              <div class="tx-main">
+                <strong>{{ c.amount|taka }}</strong>
+                <span class="tx-meta">{{ c.date|date:"j M Y" }}</span>
+                {% if c.note %}<span class="tx-note">{{ c.note }}</span>{% endif %}
+              </div>
+              <div class="tx-side">
+                <span class="tx-links">
+                  <a href="{% url 'finance:contribution_update' c.pk %}">Edit<span class="visually-hidden"> contribution of {{ c.amount|taka }} on {{ c.date|date:"j M" }}</span></a>
+                  <a href="{% url 'finance:contribution_delete' c.pk %}">Delete<span class="visually-hidden"> contribution of {{ c.amount|taka }} on {{ c.date|date:"j M" }}</span></a>
+                </span>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No contributions yet. Add the first one with the form.</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

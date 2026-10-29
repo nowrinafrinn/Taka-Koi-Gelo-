@@ -38,6 +38,12 @@
           {% if summary.balance < 0 %}You have recorded more spending than income.
           {% else %}All income recorded minus all spending recorded.{% endif %}
         </p>
+        {% if set_aside %}
+          <p class="balance-note">
+            <a class="on-note-link" href="{% url 'finance:goal_list' %}">{{ set_aside|taka }} set aside for goals</a>
+            {% if not_set_aside >= 0 %}· {{ not_set_aside|taka }} not set aside{% else %}· more than your recorded balance{% endif %}
+          </p>
+        {% endif %}
       </div>
       <div class="month-pair">
         <div>

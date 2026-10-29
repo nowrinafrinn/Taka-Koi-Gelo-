@@ -46,7 +46,7 @@
         {% else %}<span></span>{% endif %}
       </div>
 
-      {% if not s.has_data %}
+      {% if not s.has_data and not s.contributions %}
         <div class="empty">
           <p><strong>Nothing recorded in {{ s.month|date:"F Y" }}.</strong></p>
           <p class="muted">Transactions dated in this month will show up here.</p>
@@ -64,6 +64,7 @@
             <span class="muted small">{{ report.transaction_count }} transaction{{ report.transaction_count|pluralize }} this month</span>
           </div>
           {% include 'partials/net_card.html' with stat=s %}
+          {% include 'partials/savings_card.html' with contributions=s.contributions rate=s.savings_rate %}
           {% if s.budget_limit is not None %}
             <div class="stat">
               <span class="stat-label">Budget</span>
@@ -158,6 +159,7 @@
               <span class="muted small">No month with recorded income above expenses</span>
             {% endif %}
           </div>
+          {% include 'partials/savings_card.html' with contributions=c.total_contributions rate=c.savings_rate %}
         </section>
 
         <section class="panel" aria-labelledby="chart-title">
@@ -210,6 +212,7 @@
                   <th scope="col" class="num-col">Income</th>
                   <th scope="col" class="num-col">Expenses</th>
                   <th scope="col" class="num-col">Surplus / deficit</th>
+                  <th scope="col" class="num-col">To goals</th>
                   <th scope="col">Budget</th>
                 </tr>
               </thead>
@@ -223,7 +226,7 @@
                     </th>
                     {% if m.is_future %}
                       <td class="num-col muted">—</td><td class="num-col muted">—</td>
-                      <td class="num-col muted">Not started</td><td></td>
+                      <td class="num-col muted">Not started</td><td></td><td></td>
                     {% else %}
                       <td class="num-col">{{ m.income|taka }}</td>
                       <td class="num-col">{{ m.expenses|taka }}</td>
@@ -234,6 +237,7 @@
                         {% elif m.verdict == 'even' %}Even
                         {% else %}<span class="muted">—</span>{% endif %}
                       </td>
+                      <td class="num-col">{% if m.contributions %}{{ m.contributions|taka }}{% else %}<span class="muted">—</span>{% endif %}</td>
                       <td>
                         {% if m.budget_limit is None %}<span class="muted">No budget</span>
                         {% elif m.over_budget %}<span class="tag tag-deficit">Over</span> {{ m.budget_limit|taka }}

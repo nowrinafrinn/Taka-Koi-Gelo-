@@ -129,3 +129,62 @@ class MonthlyBudget(models.Model):
         if self.month:
             self.month = self.month.replace(day=1)
         super().save(*args, **kwargs)
+
+
+class SavingsGoal(models.Model):
+    """Something the user is saving towards, e.g. "New phone, ৳20,000".
+
+    Savings live in their own tables, never in Transaction, so a contribution
+    can't be counted as an expense, change the surplus/deficit, or touch the
+    budget. See services.py for how totals are reported.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='savings_goals',
+    )
+    name = models.CharField(max_length=80)
+    target_amount = models.DecimalField(**MONEY, validators=[MinValueValidator(MIN_AMOUNT)])
+    target_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'name'], name='unique_goal_name_per_user'),
+            models.CheckConstraint(condition=models.Q(target_amount__gt=0), name='goal_target_positive'),
+        ]
+
+    def __str__(self):
+        return f'{self.name} (৳{self.target_amount})'
+
+
+class GoalContribution(models.Model):
+    """Money the user put towards a goal on a given date.
+
+    Ownership comes from the goal (goal.user); there is deliberately no
+    separate user field that could disagree with it.
+    """
+
+    goal = models.ForeignKey(SavingsGoal, on_delete=models.CASCADE, related_name='contributions')
+    amount = models.DecimalField(**MONEY, validators=[MinValueValidator(MIN_AMOUNT)])
+    date = models.DateField()
+    note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+        indexes = [models.Index(fields=['goal', 'date'])]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name='contribution_amount_positive'),
+        ]
+
+    def __str__(self):
+        return f'৳{self.amount} to {self.goal.name} on {self.date}'
+
+    def clean(self):
+        if self.date and self.date > timezone.localdate():
+            raise ValidationError({'date': 'The date cannot be in the future.'})

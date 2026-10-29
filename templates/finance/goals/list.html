@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Savings goals · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <div class="page-head">
+    <div>
+      <h1>Savings goals</h1>
+      <p class="muted" style="margin:0">Money you set aside. It isn’t counted as spending.</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="{% url 'finance:goal_create' %}">+ New goal</a>
+    </div>
+  </div>
+
+  {% if not active and not completed %}
+    <div class="empty">
+      <p><strong>No savings goals yet.</strong></p>
+      <p class="muted">Saving for a phone, a trip or exam fees? Create a goal and record what you put aside.</p>
+      <a class="button" href="{% url 'finance:goal_create' %}">+ Create your first goal</a>
+    </div>
+  {% else %}
+    {% if active %}
+      <section aria-labelledby="active-title" class="goal-section">
+        <h2 id="active-title" class="section-title">In progress</h2>
+        <div class="goal-grid">
+          {% for p in active %}{% include 'partials/goal_card.html' %}{% endfor %}
+        </div>
+      </section>
+    {% endif %}
+    {% if completed %}
+      <section aria-labelledby="completed-title" class="goal-section">
+        <h2 id="completed-title" class="section-title">Completed <span lang="bn" class="muted">· লক্ষ্য পূরণ</span></h2>
+        <div class="goal-grid">
+          {% for p in completed %}{% include 'partials/goal_card.html' %}{% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock %}

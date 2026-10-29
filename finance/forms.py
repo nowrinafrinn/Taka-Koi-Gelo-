@@ -3,7 +3,7 @@ import datetime
 from django import forms
 from django.utils import timezone
 
-from .models import MonthlyBudget, Transaction
+from .models import GoalContribution, MonthlyBudget, SavingsGoal, Transaction
 
 
 class BudgetForm(forms.ModelForm):
@@ -121,3 +121,52 @@ class TransactionFilterForm(forms.Form):
         if data.get('end'):
             queryset = queryset.filter(date__lte=data['end'])
         return queryset
+
+
+class SavingsGoalForm(forms.ModelForm):
+    """Name, target and optional date. The owner comes from the view."""
+
+    class Meta:
+        model = SavingsGoal
+        fields = ['name', 'target_amount', 'target_date']
+        widgets = {
+            'name': forms.TextInput(attrs={'placeholder': 'e.g. New phone'}),
+            'target_amount': forms.NumberInput(attrs={'step': '0.01', 'min': '0.01', 'inputmode': 'decimal'}),
+            'target_date': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
+        }
+        labels = {'target_amount': 'Target amount (৳)', 'target_date': 'Target date (optional)'}
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instance.user = user
+
+    def clean_name(self):
+        # The (user, name) unique constraint isn't checked by ModelForm because
+        # `user` isn't a form field, so check it here for a friendly message.
+        name = self.cleaned_data['name'].strip()
+        duplicate = SavingsGoal.objects.filter(user=self.instance.user, name__iexact=name).exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise forms.ValidationError('You already have a goal with this name.')
+        return name
+
+
+class GoalContributionForm(forms.ModelForm):
+    """Amount, date and note. The goal comes from the URL, never from the form."""
+
+    class Meta:
+        model = GoalContribution
+        fields = ['amount', 'date', 'note']
+        widgets = {
+            'amount': forms.NumberInput(attrs={'step': '0.01', 'min': '0.01', 'inputmode': 'decimal'}),
+            'date': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
+            'note': forms.TextInput(attrs={'placeholder': 'e.g. From tuition money'}),
+        }
+        labels = {'amount': 'Amount (৳)'}
+
+    def __init__(self, *args, goal, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instance.goal = goal
+        today = timezone.localdate()
+        self.fields['date'].widget.attrs['max'] = today.isoformat()
+        if not self.instance.pk:
+            self.fields['date'].initial = today

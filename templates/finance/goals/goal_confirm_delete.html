@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}Delete goal · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <section class="form-card">
+    <h1>Delete “{{ progress.goal.name }}”?</h1>
+    <p class="delete-summary">
+      Target {{ progress.target|taka }} · {{ progress.contributed|taka }} contributed
+      in {{ contribution_count }} contribution{{ contribution_count|pluralize }}
+    </p>
+    <p class="muted">
+      The goal and all its contributions will be deleted. Your income, expenses and balance are not affected.
+      This cannot be undone.
+    </p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-buttons">
+        <button type="submit" class="button button-danger">Yes, delete goal</button>
+        <a href="{% url 'finance:goal_detail' progress.goal.pk %}">Keep it</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

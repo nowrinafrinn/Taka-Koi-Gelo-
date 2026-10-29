@@ -1,0 +1,22 @@
+{% load money %}
+{# One goal with its progress. `p` is a services.GoalProgress. #}
+<article class="panel goal-card{% if p.is_complete %} is-complete{% endif %}">
+  <div class="panel-head">
+    <h2><a href="{% url 'finance:goal_detail' p.goal.pk %}">{{ p.goal.name }}</a></h2>
+    {% if p.is_complete %}<span class="tag tag-surplus">Completed</span>
+    {% elif p.is_overdue %}<span class="tag tag-deficit">Target date passed</span>{% endif %}
+  </div>
+  <div class="goal-figures">
+    <strong class="num">{{ p.contributed|taka }}</strong>
+    <span class="muted">of {{ p.target|taka }} · {{ p.percent }}%</span>
+  </div>
+  <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+       aria-valuenow="{{ p.bar_percent|stringformat:'d' }}" aria-label="Progress towards {{ p.goal.name }}">
+    <span style="width: {{ p.bar_percent|stringformat:'s' }}%"></span>
+  </div>
+  <p class="small muted goal-meta">
+    {% if p.is_complete %}Target reached{% if p.contributed > p.target %}, {{ p.contributed|taka }} contributed{% endif %}.
+    {% else %}{{ p.remaining|taka }} to go{% endif %}
+    {% if p.goal.target_date %} · Target date {{ p.goal.target_date|date:"j M Y" }}{% endif %}
+  </p>
+</article>

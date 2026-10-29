@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% load money %}
+
+{% block title %}Delete contribution · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <section class="form-card">
+    <h1>Delete this contribution?</h1>
+    <p class="delete-summary">
+      <strong class="num">{{ contribution.amount|taka }}</strong> to {{ contribution.goal.name }} ·
+      {{ contribution.date|date:"j M Y" }}
+      {% if contribution.note %}<br><span class="muted">{{ contribution.note }}</span>{% endif %}
+    </p>
+    <p class="muted">The goal’s progress will go down by this amount. This cannot be undone.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-buttons">
+        <button type="submit" class="button button-danger">Yes, delete</button>
+        <a href="{% url 'finance:goal_detail' contribution.goal.pk %}">Keep it</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

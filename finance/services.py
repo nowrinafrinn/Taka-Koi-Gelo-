@@ -18,7 +18,7 @@ from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
-from .models import MonthlyBudget, Transaction
+from .models import GoalContribution, MonthlyBudget, SavingsGoal, Transaction
 from .templatetags.money import taka
 
 CENT = Decimal('0.01')
@@ -296,6 +296,11 @@ class MonthStat:
     budget_limit: Decimal | None
     is_current: bool = False      # still in progress
     is_future: bool = False       # has not started yet (year view only)
+    contributions: Decimal = ZERO  # put towards savings goals (not an expense)
+
+    @property
+    def savings_rate(self):
+        return savings_rate(self.contributions, self.income)
 
     @property
     def net(self):
@@ -375,6 +380,11 @@ class YearComparison:
     no_income_months: int
     over_budget_months: int
     budgeted_months: int
+    total_contributions: Decimal = ZERO
+
+    @property
+    def savings_rate(self):
+        return savings_rate(self.total_contributions, self.total_income)
 
     @property
     def net(self):
@@ -394,12 +404,13 @@ class YearComparison:
 
 
 def get_year_comparison(user, year, today=None):
-    """Jan-Dec of `year`. Two queries regardless of data size."""
+    """Jan-Dec of `year`. Three queries regardless of data size."""
     today = today or timezone.localdate()
     current_start, _ = month_bounds(today)
     first, last = datetime.date(year, 1, 1), datetime.date(year, 12, 1)
     totals = _month_rows(user, first, datetime.date(year, 12, 31))
     budgets = _budgets(user, first, last)
+    saved = contributions_by_month(user, first, datetime.date(year, 12, 31))
 
     months = []
     for i in range(12):
@@ -413,6 +424,7 @@ def get_year_comparison(user, year, today=None):
             budget_limit=money(limit) if limit is not None else None,
             is_current=start == current_start,
             is_future=start > current_start,
+            contributions=saved.get(start, ZERO),
         ))
 
     started = [m for m in months if not m.is_future]
@@ -434,6 +446,7 @@ def get_year_comparison(user, year, today=None):
         no_income_months=sum(m.verdict == 'no_income' for m in started),
         over_budget_months=sum(m.over_budget for m in started),
         budgeted_months=sum(m.budget_limit is not None for m in started),
+        total_contributions=sum((m.contributions for m in started), ZERO),
     )
 
 
@@ -453,7 +466,7 @@ class MonthReport:
 
 
 def get_month_report(user, year, month, today=None):
-    """One calendar month in detail. Three queries."""
+    """One calendar month in detail. Four queries."""
     today = today or timezone.localdate()
     start = datetime.date(year, month, 1)
     _, end = month_bounds(start)
@@ -488,6 +501,7 @@ def get_month_report(user, year, month, today=None):
         budget_limit=money(limit) if limit is not None else None,
         is_current=start == current_start,
         is_future=start > current_start,
+        contributions=contributions_between(user, start, end),
     )
     return MonthReport(stat=stat, categories=categories, transaction_count=totals['count'])
 
@@ -497,3 +511,88 @@ def first_transaction_year(user, today=None):
     today = today or timezone.localdate()
     first = Transaction.objects.filter(user=user).order_by('date').values_list('date', flat=True).first()
     return min(first.year, today.year) if first else today.year
+
+
+# ---------------------------------------------------------------------------
+# Savings goals
+# ---------------------------------------------------------------------------
+# Contributions live in GoalContribution, never in Transaction. They are not
+# expenses: they do not change income, expenses, surplus/deficit, the budget
+# or the available balance. They are reported on their own, and the savings
+# rate is contributions / income x 100 (None, shown as "N/A", without income).
+
+
+def savings_rate(contributions, income):
+    """Recorded contributions as a % of recorded income, or None if no income."""
+    if not income:
+        return None
+    return (contributions * 100 / income).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+
+
+@dataclass
+class GoalProgress:
+    goal: SavingsGoal
+    contributed: Decimal
+    today: datetime.date
+
+    @property
+    def target(self):
+        return money(self.goal.target_amount)
+
+    @property
+    def remaining(self):
+        return max(self.target - self.contributed, ZERO)
+
+    @property
+    def percent(self):
+        """Actual % of the target reached (can exceed 100)."""
+        return percent(self.contributed, self.target)
+
+    @property
+    def bar_percent(self):
+        return min(self.percent, Decimal('100'))
+
+    @property
+    def is_complete(self):
+        return self.contributed >= self.target
+
+    @property
+    def is_overdue(self):
+        return bool(self.goal.target_date) and self.goal.target_date < self.today and not self.is_complete
+
+
+def goal_progress(goal, today=None):
+    """Progress for one goal (one query)."""
+    total = goal.contributions.aggregate(total=Sum('amount'))['total']
+    return GoalProgress(goal=goal, contributed=money(total), today=today or timezone.localdate())
+
+
+def goals_with_progress(user, today=None):
+    """(active, completed) lists of GoalProgress. One query for all goals."""
+    today = today or timezone.localdate()
+    goals = SavingsGoal.objects.filter(user=user).annotate(contributed=Sum('contributions__amount'))
+    progress = [GoalProgress(goal=g, contributed=money(g.contributed), today=today) for g in goals]
+    return [p for p in progress if not p.is_complete], [p for p in progress if p.is_complete]
+
+
+def contributions_between(user, start, end):
+    """Total contributed by the user, across all goals, dated start..end. One query."""
+    total = GoalContribution.objects.filter(goal__user=user, date__range=(start, end)).aggregate(
+        total=Sum('amount'))['total']
+    return money(total)
+
+
+def total_set_aside(user):
+    """All contributions ever recorded (for the dashboard). One query."""
+    total = GoalContribution.objects.filter(goal__user=user).aggregate(total=Sum('amount'))['total']
+    return money(total)
+
+
+def contributions_by_month(user, start, end):
+    """{month_start: total} of contributions dated start..end. One query."""
+    rows = (
+        GoalContribution.objects.filter(goal__user=user, date__range=(start, end))
+        .annotate(month=TruncMonth('date')).values('month')
+        .annotate(total=Sum('amount')).order_by('month')
+    )
+    return {row['month']: money(row['total']) for row in rows}
