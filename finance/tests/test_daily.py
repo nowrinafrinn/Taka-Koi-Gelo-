@@ -133,11 +133,31 @@ class MonthViewDailyTests(TestCase):
     def get(self, **params):
         return self.client.get(reverse('finance:stats'), {'view': 'month', **params})
 
-    def test_bars_by_default(self):
+    def test_bars_by_default_with_calendar_rendered_but_hidden(self):
         response = self.get()
         self.assertEqual(response.context['daily_mode'], 'bars')
-        self.assertContains(response, 'class="bar-chart daily-chart"')
-        self.assertNotContains(response, 'class="calendar"')
+        self.assertContains(response, '<div class="daily-view" data-daily-view="bars" >')
+        self.assertContains(response, '<div class="daily-view" data-daily-view="calendar" hidden>')
+
+    def test_calendar_mode_hides_bars_instead(self):
+        response = self.get(daily='calendar')
+        self.assertContains(response, '<div class="daily-view" data-daily-view="calendar" >')
+        self.assertContains(response, '<div class="daily-view" data-daily-view="bars" hidden>')
+
+    def test_switch_links_jump_to_the_card_without_javascript(self):
+        response = self.get()
+        self.assertContains(response, 'id="daily"')
+        self.assertContains(response, 'data-daily="calendar" href="?view=month&amp;year=')
+        self.assertContains(response, '&amp;daily=calendar#daily"')
+
+    def test_day_links_match_their_view(self):
+        response = self.get()
+        day = reverse('finance:day_detail', args=[self.today.isoformat()])
+        self.assertContains(response, f'href="{day}"')                      # from the bars
+        self.assertContains(response, f'href="{day}?daily=calendar"')       # from the calendar
+
+    def test_toggle_script_loaded(self):
+        self.assertContains(self.get(), 'js/daily-toggle.js')
 
     def test_calendar_mode_and_links_keep_it(self):
         response = self.get(daily='calendar')

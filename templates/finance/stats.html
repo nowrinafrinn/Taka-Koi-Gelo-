@@ -3,6 +3,11 @@
 
 {% block title %}Money insights · Taka Koi Gelo?{% endblock %}
 
+{% block scripts %}
+  {% load static %}
+  <script src="{% static 'js/daily-toggle.js' %}" defer></script>
+{% endblock %}
+
 {% block content %}
   <div class="page-head">
     <h1>Money insights</h1>
@@ -102,17 +107,18 @@
           </section>
         {% endif %}
 
-        <section class="panel" aria-labelledby="daily-title">
+        <section class="panel" id="daily" aria-labelledby="daily-title">
           <div class="panel-head">
             <h2 id="daily-title">Daily spending</h2>
-            {# Plain links: the choice is kept in the URL, works without JavaScript. #}
+            {# Real links: bookmarkable, and #daily jumps back here without JS; daily-toggle.js switches in place. #}
             <nav class="segmented segmented-sm" aria-label="Daily view">
-              <a href="?view=month&amp;year={{ year }}&amp;month={{ month }}" {% if daily_mode == 'bars' %}aria-current="page"{% endif %}>Bars</a>
-              <a href="?view=month&amp;year={{ year }}&amp;month={{ month }}&amp;daily=calendar" {% if daily_mode == 'calendar' %}aria-current="page"{% endif %}>Calendar</a>
+              <a data-daily="bars" href="?view=month&amp;year={{ year }}&amp;month={{ month }}#daily" {% if daily_mode == 'bars' %}aria-current="page"{% endif %}>Bars</a>
+              <a data-daily="calendar" href="?view=month&amp;year={{ year }}&amp;month={{ month }}&amp;daily=calendar#daily" {% if daily_mode == 'calendar' %}aria-current="page"{% endif %}>Calendar</a>
             </nav>
           </div>
 
-          {% if daily_mode == 'calendar' %}
+          {# Both views are rendered; the inactive one is hidden. #}
+          <div class="daily-view" data-daily-view="calendar" {% if daily_mode != 'calendar' %}hidden{% endif %}>
             <div class="calendar" role="table" aria-label="Spending calendar for {{ s.month|date:'F Y' }}">
               <div class="calendar-row calendar-head" role="row">
                 <span role="columnheader">Sun</span><span role="columnheader">Mon</span><span role="columnheader">Tue</span><span role="columnheader">Wed</span><span role="columnheader">Thu</span><span role="columnheader">Fri</span><span role="columnheader">Sat</span>
@@ -123,7 +129,7 @@
                     {% if d is None %}<span role="cell" class="calendar-cell is-blank"></span>
                     {% else %}
                       {% if d.is_future %}<span role="cell" class="calendar-cell level-0 is-future" title="{{ d.date|date:'j F' }}: hasn’t happened yet">
-                      {% else %}<a role="cell" class="calendar-cell level-{{ d.level }}" href="{% url 'finance:day_detail' d.date.isoformat %}{% if daily_mode == 'calendar' %}?daily=calendar{% endif %}"
+                      {% else %}<a role="cell" class="calendar-cell level-{{ d.level }}" href="{% url 'finance:day_detail' d.date.isoformat %}?daily=calendar"
                             title="{{ d.date|date:'j F' }}: {% if d.amount %}{{ d.amount|taka }} spent{% else %}no expenses{% endif %}">{% endif %}
                         <span class="calendar-day">{{ d.date.day }}</span>
                         {% if d.amount %}<span class="calendar-amount">{{ d.amount|floatformat:0 }}</span>{% endif %}
@@ -140,7 +146,8 @@
               <li><span class="swatch level-2"></span></li><li><span class="swatch level-3"></span></li>
               <li><span class="swatch level-4"></span></li><li>More</li>
             </ul>
-          {% else %}
+          </div>
+          <div class="daily-view" data-daily-view="bars" {% if daily_mode != 'bars' %}hidden{% endif %}>
             <div class="chart-wrap">
               <svg class="bar-chart daily-chart" viewBox="0 0 {{ daily_chart.width }} {{ daily_chart.height }}" role="img"
                    aria-label="Bars of spending for each day of {{ s.month|date:'F Y' }}. Switch to Calendar for a day-by-day grid with the same figures.">
@@ -152,7 +159,7 @@
                   <g class="day{% if g.is_future %} is-future{% endif %}">
                     <title>{{ g.title }}</title>
                     {# Every day that has started opens its day page, even with nothing spent. #}
-                    {% if not g.is_future %}<a href="{% url 'finance:day_detail' g.date.isoformat %}{% if daily_mode == 'calendar' %}?daily=calendar{% endif %}" aria-label="{{ g.title }}. Open this day.">{% endif %}
+                    {% if not g.is_future %}<a href="{% url 'finance:day_detail' g.date.isoformat %}" aria-label="{{ g.title }}. Open this day.">{% endif %}
                     <rect class="hit" x="{{ g.hit.x }}" y="0" width="{{ g.hit.w }}" height="{{ daily_chart.height }}" fill="transparent"/>
                     {% if g.h %}<rect class="{% if g.is_biggest %}bar-day-max{% else %}bar-day{% endif %}" x="{{ g.x }}" y="{{ g.y }}" width="{{ g.w }}" height="{{ g.h }}" rx="2"/>{% endif %}
                     {% if g.label %}<text class="month-label" x="{{ g.center }}" y="{{ daily_chart.label_y }}" text-anchor="middle">{{ g.label }}</text>{% endif %}
@@ -161,7 +168,7 @@
                 {% endfor %}
               </svg>
             </div>
-          {% endif %}
+          </div>
           <p class="small muted" style="margin-top: var(--space-2)">
             Tap a day to see its transactions.
             {% if daily.biggest %}Biggest day: {{ daily.biggest.date|date:"l j F" }}, {{ daily.biggest.amount|taka }}.{% else %}No expenses recorded this month.{% endif %}
