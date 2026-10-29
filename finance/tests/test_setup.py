@@ -40,3 +40,21 @@ class DatabaseHealthTests(TestCase):
             response = self.client.get(self.url)
         self.assertEqual(response.status_code, 503)
         self.assertNotIn(b'down', response.content)   # no internal error details leak
+
+
+class DependencyListsTests(TestCase):
+    def test_pyproject_and_requirements_pin_the_same_packages(self):
+        import tomllib
+        from pathlib import Path
+
+        from django.conf import settings
+
+        root = Path(settings.BASE_DIR)
+        pyproject = tomllib.loads((root / 'pyproject.toml').read_text(encoding='utf-8'))
+        from_pyproject = {d.lower() for d in pyproject['project']['dependencies']}
+        from_requirements = {
+            line.strip().lower()
+            for line in (root / 'requirements.txt').read_text(encoding='utf-8').splitlines()
+            if line.strip() and not line.startswith('#')
+        }
+        self.assertEqual(from_pyproject, from_requirements)

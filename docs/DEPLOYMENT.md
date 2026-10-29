@@ -73,11 +73,21 @@ git push -u origin main
 3. Deploy. During the build Vercel installs `requirements.txt` with Python
    3.13 (`.python-version`) and runs `collectstatic` automatically.
 
-## 4. Create the tables (run once, and after every new migration)
+## 4. Create the tables
 
-From your laptop, in PowerShell, with the **session pooler** URL. These
-variables last only for this terminal window, and real environment
-variables override `.env`:
+**Automatic:** `pyproject.toml` defines a Vercel build hook that runs
+`python manage.py migrate --noinput` on every deploy, using the
+`DATABASE_URL` stored in Vercel. New migrations are applied before the new
+version goes live. Check the build log for `Applying … OK` lines.
+
+Every deployment environment that has `DATABASE_URL` runs this hook,
+including Preview deployments from other branches if they share the
+production database. Keep `DATABASE_URL` scoped to **Production** once you
+start using branches.
+
+**Manual alternative** (e.g. to create a superuser): from your laptop, in
+PowerShell, with the **session pooler** URL. These variables last only for
+this terminal window, and real environment variables override `.env`:
 
 ```powershell
 $env:DATABASE_URL = "<session pooler URL>"
@@ -106,5 +116,5 @@ After a few days with no problems, raise `DJANGO_HSTS_SECONDS` (e.g. to
 | `DisallowedHost` / 400 | Custom domain not in `DJANGO_ALLOWED_HOSTS` |
 | 403 CSRF on forms | Custom domain not in `DJANGO_CSRF_TRUSTED_ORIGINS` (with `https://`) |
 | 500 on every page, logs mention the database | Wrong `DATABASE_URL`, missing `DB_SSL_REQUIRE=True`, or the Supabase project is paused |
-| `relation "auth_user" does not exist` | Migrations not run against Supabase (step 4) |
+| `relation "auth_user" does not exist` | Migrations didn't reach Supabase. Check the build log for the migrate step. When migrating by hand, first check where Django points: `manage.py shell -c "from django.db import connection as c; print(c.settings_dict['HOST'])"` |
 | `prepared statement ... does not exist` | Should not happen: prepared statements are disabled in settings |

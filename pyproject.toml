@@ -1,0 +1,24 @@
+[project]
+name = "taka-koi-gelo"
+version = "1.0.0"
+description = "Personal expense manager for students in Bangladesh, with a 3D wallet."
+requires-python = ">=3.13"
+# Keep identical to requirements.txt (a test checks this): Vercel may install
+# from either file, so both must describe the same environment.
+dependencies = [
+    "asgiref==3.13.0",
+    "dj-database-url==3.1.2",
+    "Django==5.2.18",
+    "psycopg==3.3.6",
+    "psycopg-binary==3.3.6",
+    "python-dotenv==1.2.4",
+    "sqlparse==0.6.0",
+    "tzdata==2026.6",
+]
+
+[tool.vercel.scripts]
+# Runs on Vercel after dependencies are installed, before the new version goes
+# live: apply any new migrations to the production database (DATABASE_URL is a
+# Vercel environment variable, so the password never leaves Vercel).
+# Skipped when no database is configured. Pattern from Vercel's Django template.
+build = 'if [ -n "$DATABASE_URL" ]; then python manage.py migrate --noinput; fi'
