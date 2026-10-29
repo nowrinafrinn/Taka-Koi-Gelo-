@@ -2,10 +2,12 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from .forms import TransactionFilterForm, TransactionForm
-from .models import Transaction
+from . import services
+from .forms import BudgetForm, TransactionFilterForm, TransactionForm
+from .models import MonthlyBudget, Transaction
 from .templatetags.money import taka
 
 PAGE_SIZE = 20
@@ -20,8 +22,30 @@ def home(request):
 
 @login_required
 def dashboard(request):
-    # Placeholder. Real figures arrive in the dashboard stage.
-    return render(request, 'finance/dashboard.html')
+    summary = services.get_dashboard_summary(request.user)
+    return render(request, 'finance/dashboard.html', {'summary': summary})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def budget_edit(request):
+    """Set or change the budget for the current month only."""
+    month_start, _ = services.month_bounds(timezone.localdate())
+    budget = (
+        MonthlyBudget.objects.filter(user=request.user, month=month_start).first()
+        or MonthlyBudget(user=request.user, month=month_start)
+    )
+    initial = {}
+    if budget.pk is None:
+        # Suggest last month's limit so the user does not retype it.
+        initial['limit'] = services.suggested_budget_limit(request.user)
+
+    form = BudgetForm(request.POST or None, instance=budget, initial=initial)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Budget for {month_start:%B} set to {taka(budget.limit)}.')
+        return redirect('finance:dashboard')
+    return render(request, 'finance/budget_form.html', {'form': form, 'month_start': month_start})
 
 
 def get_own_transaction(request, pk):

@@ -1,7 +1,17 @@
 from django import forms
 from django.utils import timezone
 
-from .models import Transaction
+from .models import MonthlyBudget, Transaction
+
+
+class BudgetForm(forms.ModelForm):
+    """Only the limit is editable. The view decides the user and month."""
+
+    class Meta:
+        model = MonthlyBudget
+        fields = ['limit']
+        widgets = {'limit': forms.NumberInput(attrs={'step': '0.01', 'min': '0.01', 'inputmode': 'decimal'})}
+        labels = {'limit': 'Spending limit for this month (৳)'}
 
 
 class TransactionForm(forms.ModelForm):

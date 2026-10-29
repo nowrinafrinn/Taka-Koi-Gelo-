@@ -27,6 +27,7 @@ body {
 
 .site-nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: center;
 }
@@ -82,6 +83,35 @@ body {
 .tx-income .tx-amount { color: #0b6b4f; }
 .tx-expense .tx-amount { color: #8a3b12; }
 .tx-links { display: flex; gap: 10px; font-size: 0.9em; }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.stat, .panel { background: #fff; border: 1px solid #e3ddcf; border-radius: 12px; padding: 16px; }
+.stat { display: flex; flex-direction: column; gap: 6px; }
+.stat-value { font-size: 1.6em; font-variant-numeric: tabular-nums; }
+.negative { color: #a3261b; }
+.panel { margin-bottom: 16px; }
+.panel h2 { font-size: 1.1em; margin: 0 0 8px; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.two-col .panel { margin-bottom: 0; }
+
+.bar { height: 12px; background: #eee8da; border-radius: 6px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: #0b6b4f; }
+.bar-thin { height: 6px; }
+.budget-warning .bar > span { background: #c27c0e; }
+.budget-over .bar > span { background: #a3261b; }
+.budget-over .budget-remaining { color: #a3261b; }
+
+.insights { margin: 0; padding-left: 18px; }
+.insights li { margin-bottom: 6px; }
+.category-bars { list-style: none; padding: 0; margin: 0; }
+.category-bars li { margin-bottom: 10px; }
+.category-row { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 
 .pagination { display: flex; gap: 16px; justify-content: center; margin-top: 16px; }
 .helptext, .muted { color: #5b665f; font-size: 0.9em; }

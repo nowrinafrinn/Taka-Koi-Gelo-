@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Monthly budget · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <section class="form-card">
+    <h1>Budget for {{ month_start|date:"F Y" }}</h1>
+    <p class="muted">Every expense dated this month counts against it. You will see a warning at 80%.</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form }}
+      <div class="form-buttons">
+        <button type="submit" class="button">Save budget</button>
+        <a href="{% url 'finance:dashboard' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

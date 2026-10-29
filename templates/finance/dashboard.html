@@ -1,8 +1,110 @@
 {% extends 'base.html' %}
+{% load money %}
 
 {% block title %}Dashboard · Taka Koi Gelo?{% endblock %}
 
 {% block content %}
-  <h1>Hi, {{ user.username }}</h1>
-  <p>Your dashboard is private to you. Transactions and figures arrive in the next stages.</p>
+  <div class="page-head">
+    <h1>Hi, {{ user.username }}</h1>
+    <div class="actions">
+      <a class="button" href="{% url 'finance:income_create' %}">+ Income</a>
+      <a class="button button-expense" href="{% url 'finance:expense_create' %}">− Expense</a>
+    </div>
+  </div>
+
+  {# All figures are rendered by Django as text. Nothing here depends on JavaScript. #}
+  <section class="stats" aria-label="Summary">
+    <div class="stat">
+      <span class="stat-label">Available balance <span class="muted">(all time)</span></span>
+      <strong class="stat-value {% if summary.balance < 0 %}negative{% endif %}">{{ summary.balance|taka }}</strong>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Income in {{ summary.month_start|date:"F" }}</span>
+      <strong class="stat-value">{{ summary.month_income|taka }}</strong>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Spent in {{ summary.month_start|date:"F" }}</span>
+      <strong class="stat-value">{{ summary.month_expenses|taka }}</strong>
+    </div>
+  </section>
+
+  <section class="panel budget budget-{{ summary.budget.state|default:'none' }}" aria-labelledby="budget-title">
+    <div class="panel-head">
+      <h2 id="budget-title">{{ summary.month_start|date:"F" }} budget</h2>
+      <a href="{% url 'finance:budget_edit' %}">{% if summary.budget %}Change{% else %}Set budget{% endif %}</a>
+    </div>
+    {% with b=summary.budget %}
+      {% if b %}
+        <p>
+          <strong>{{ b.spent|taka }}</strong> of {{ b.limit|taka }} used ({{ b.used_percent }}%)
+        </p>
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+             aria-valuenow="{{ b.bar_percent|stringformat:'d' }}" aria-label="Budget used">
+          <span style="width: {{ b.bar_percent|stringformat:'s' }}%"></span>
+        </div>
+        <p class="budget-remaining">
+          {% if b.state == 'over' %}
+            Over budget by <strong>{{ b.overspent|taka }}</strong>
+          {% else %}
+            <strong>{{ b.remaining|taka }}</strong> remaining
+            {% if b.state == 'warning' %}· careful, you are close to the limit{% endif %}
+          {% endif %}
+        </p>
+      {% else %}
+        <p class="muted">No budget for this month yet. Set a limit to see how much you can still spend.</p>
+      {% endif %}
+    {% endwith %}
+  </section>
+
+  {% if summary.insights %}
+    <section class="panel" aria-labelledby="insights-title">
+      <h2 id="insights-title">What we noticed</h2>
+      <ul class="insights">
+        {% for insight in summary.insights %}<li>{{ insight }}</li>{% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <div class="two-col">
+    <section class="panel" aria-labelledby="categories-title">
+      <h2 id="categories-title">Spending by category</h2>
+      {% if summary.categories %}
+        <ul class="category-bars">
+          {% for c in summary.categories %}
+            <li>
+              <div class="category-row">
+                <span>{{ c.label }}</span>
+                <span>{{ c.total|taka }} <span class="muted">· {{ c.percent }}%</span></span>
+              </div>
+              <div class="bar bar-thin" aria-hidden="true"><span style="width: {{ c.percent|stringformat:'s' }}%"></span></div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No spending recorded in {{ summary.month_start|date:"F" }} yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel" aria-labelledby="recent-title">
+      <div class="panel-head">
+        <h2 id="recent-title">Recent</h2>
+        <a href="{% url 'finance:transaction_list' %}">See all</a>
+      </div>
+      {% if summary.recent %}
+        <ul class="tx-list">
+          {% for t in summary.recent %}
+            <li class="tx tx-{{ t.kind }}">
+              <div class="tx-main">
+                <strong>{{ t.get_category_display }}</strong>
+                <span class="muted">{{ t.date|date:"j M" }}</span>
+              </div>
+              <span class="tx-amount">{% if t.kind == 'expense' %}−{% else %}+{% endif %}{{ t.amount|taka }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Nothing recorded yet. Add your pocket money or first expense to get started.</p>
+      {% endif %}
+    </section>
+  </div>
 {% endblock %}

@@ -8,6 +8,7 @@ app_name = 'finance'
 urlpatterns = [
     path('', views.home, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('budget/', views.budget_edit, name='budget_edit'),
     path('transactions/', views.transaction_list, name='transaction_list'),
     # The kind is fixed by the URL, not by a form field the user could edit.
     path('transactions/add/income/', views.transaction_create, {'kind': Transaction.Kind.INCOME}, name='income_create'),
