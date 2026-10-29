@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}Not found · Taka Koi Gelo?{% endblock %}
+
+{% block content %}
+  <section class="form-card" style="text-align:center">
+    <p class="landing-kicker" lang="bn">এই পাতা কই গেলো?</p>
+    <h1>We couldn’t find that page</h1>
+    <p class="lede">It may have been deleted, or the link is wrong.</p>
+    <div class="form-buttons" style="justify-content:center">
+      <a class="button" href="{% url 'finance:home' %}">Go home</a>
+    </div>
+  </section>
+{% endblock %}

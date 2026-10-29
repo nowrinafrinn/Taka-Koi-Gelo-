@@ -152,3 +152,12 @@ class MonthlyBudgetTests(TestCase):
         budget = MonthlyBudget(user=self.user, month=datetime.date(2026, 10, 1), limit=Decimal('0'))
         with self.assertRaises(ValidationError):
             budget.full_clean()
+
+
+class StringRepresentationTests(TestCase):
+    def test_readable_names_in_admin(self):
+        user = User.objects.create_user('mim', password='test-pass-123')
+        t = make_transaction(user, amount=Decimal('250.00'), date=datetime.date(2026, 10, 5))
+        self.assertEqual(str(t), 'Expense ৳250.00 (Food) on 2026-10-05')
+        b = MonthlyBudget(user=user, month=datetime.date(2026, 10, 1), limit=Decimal('5000.00'))
+        self.assertEqual(str(b), 'October 2026: ৳5000.00')

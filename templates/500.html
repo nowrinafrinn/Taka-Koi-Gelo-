@@ -1,0 +1,21 @@
+{% load static %}<!doctype html>
+{# Self-contained on purpose: no base.html, no user or database access, so it still renders when the error came from those. #}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Something went wrong · Taka Koi Gelo?</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body class="is-anonymous">
+  <main class="container">
+    <section class="form-card" style="text-align:center">
+      <h1>Something went wrong on our side</h1>
+      <p class="lede">Your data is safe. Please try again in a minute.</p>
+      <div class="form-buttons" style="justify-content:center">
+        <a class="button" href="/">Go home</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

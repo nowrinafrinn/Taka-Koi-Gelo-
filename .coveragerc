@@ -1,0 +1,13 @@
+[run]
+source = accounts, finance, config
+omit =
+    */migrations/*
+    */tests/*
+    */tests.py
+    config/asgi.py
+    config/wsgi.py
+    manage.py
+
+[report]
+show_missing = True
+skip_covered = False

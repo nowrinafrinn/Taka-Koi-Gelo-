@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Development and testing only. Not installed in production.
+coverage==7.17.0

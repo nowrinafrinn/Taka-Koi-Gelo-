@@ -247,3 +247,14 @@ class QueryCountTests(SummaryTestCase):
             add(self.user, 'expense', '10', category=['food', 'transport', 'bills'][i % 3])
         with self.assertNumQueries(4):
             services.get_dashboard_summary(self.user, today=TODAY)
+
+
+class ZeroAndEvenEdgeCaseTests(SummaryTestCase):
+    def test_percent_of_zero_total_is_zero_not_an_error(self):
+        self.assertEqual(services.percent(D('0'), D('0')), D('0.0'))
+        self.assertEqual(services.percent(D('50'), D('0')), D('0.0'))
+
+    def test_exactly_even_month(self):
+        add(self.user, 'income', '1200')
+        add(self.user, 'expense', '1200')
+        self.assertIn('So far this month, income and spending are exactly even.', self.summary().insights)

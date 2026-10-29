@@ -42,6 +42,27 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', default='localhost,127.0.0.1')
 CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
 
+# Production-only HTTPS hardening (checked by `manage.py check --deploy`).
+if not DEBUG:
+    # Vercel terminates HTTPS and forwards the request over HTTP with this
+    # header, so Django can tell the original request was secure.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = env_bool('DJANGO_SECURE_SSL_REDIRECT', default=True)
+    SESSION_COOKIE_SECURE = True   # session cookie only sent over HTTPS
+    CSRF_COOKIE_SECURE = True
+    # HSTS tells browsers to use HTTPS only. Start short (1 hour); raise it
+    # once the deployment is known to work, because it cannot be undone early.
+    SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_HSTS_SECONDS', '3600'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # A *.vercel.app subdomain cannot be submitted to the browser preload list.
+    SILENCED_SYSTEM_CHECKS = ['security.W021']
+
+# Already Django defaults; stated here so the security posture is visible.
+SESSION_COOKIE_HTTPONLY = True          # JavaScript cannot read the session cookie
+X_FRAME_OPTIONS = 'DENY'                # the app cannot be embedded in other sites (clickjacking)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+
 
 # Application definition
 
