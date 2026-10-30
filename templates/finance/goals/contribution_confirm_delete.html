@@ -1,23 +1,30 @@
 {% extends 'base.html' %}
 {% load money %}
 
-{% block title %}Delete contribution · Taka Koi Gelo?{% endblock %}
+{% block title %}Delete entry · Taka Koi Gelo?{% endblock %}
 
 {% block content %}
   <section class="form-card">
-    <h1>Delete this contribution?</h1>
+    <h1>Delete this entry?</h1>
     <p class="delete-summary">
-      <strong class="num">{{ contribution.amount|taka }}</strong> to {{ contribution.goal.name }} ·
+      <strong class="num">{% if contribution.is_withdrawal %}−{% endif %}{{ contribution.amount|taka }}</strong>
+      {% if contribution.is_withdrawal %}taken out of{% else %}added to{% endif %} {{ contribution.goal.name }} ·
       {{ contribution.date|date:"j M Y" }}
       {% if contribution.note %}<br><span class="muted">{{ contribution.note }}</span>{% endif %}
     </p>
-    <p class="muted">The goal’s progress will go down by this amount. This cannot be undone.</p>
-    <form method="post">
-      {% csrf_token %}
-      <div class="form-buttons">
-        <button type="submit" class="button button-danger">Yes, delete</button>
-        <a href="{% url 'finance:goal_detail' contribution.goal.pk %}">Keep it</a>
-      </div>
-    </form>
+    {% if blocked %}
+      <p class="form-error" role="alert">This can’t be deleted: some of this money has already been taken out,
+        so the goal would go {{ shortfall|taka }} below ৳0. Delete or reduce the later withdrawal first.</p>
+      <p><a class="button button-quiet" href="{% url 'finance:goal_detail' contribution.goal.pk %}">Back to the goal</a></p>
+    {% else %}
+      <p class="muted">The goal’s progress will go {% if contribution.is_withdrawal %}up{% else %}down{% endif %} by this amount. This cannot be undone.</p>
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-buttons">
+          <button type="submit" class="button button-danger">Yes, delete</button>
+          <a href="{% url 'finance:goal_detail' contribution.goal.pk %}">Keep it</a>
+        </div>
+      </form>
+    {% endif %}
   </section>
 {% endblock %}

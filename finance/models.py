@@ -168,7 +168,13 @@ class GoalContribution(models.Model):
     separate user field that could disagree with it.
     """
 
+    class Kind(models.TextChoices):
+        DEPOSIT = 'deposit', 'Added'
+        WITHDRAWAL = 'withdrawal', 'Taken out'
+
     goal = models.ForeignKey(SavingsGoal, on_delete=models.CASCADE, related_name='contributions')
+    # The amount is always positive; `kind` says which way the money moved.
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.DEPOSIT)
     amount = models.DecimalField(**MONEY, validators=[MinValueValidator(MIN_AMOUNT)])
     date = models.DateField()
     note = models.CharField(max_length=200, blank=True)
@@ -180,10 +186,22 @@ class GoalContribution(models.Model):
         indexes = [models.Index(fields=['goal', 'date'])]
         constraints = [
             models.CheckConstraint(condition=models.Q(amount__gt=0), name='contribution_amount_positive'),
+            models.CheckConstraint(condition=models.Q(kind__in=['deposit', 'withdrawal']),
+                                   name='contribution_kind_valid'),
         ]
 
     def __str__(self):
-        return f'৳{self.amount} to {self.goal.name} on {self.date}'
+        direction = 'from' if self.is_withdrawal else 'to'
+        return f'৳{self.amount} {direction} {self.goal.name} on {self.date}'
+
+    @property
+    def is_withdrawal(self):
+        return self.kind == self.Kind.WITHDRAWAL
+
+    @property
+    def signed_amount(self):
+        """+amount when added to the goal, -amount when taken out."""
+        return -self.amount if self.is_withdrawal else self.amount
 
     def clean(self):
         if self.date and self.date > timezone.localdate():

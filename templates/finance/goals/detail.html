@@ -15,7 +15,7 @@
 
   <section class="stats" aria-label="Goal progress">
     <div class="stat">
-      <span class="stat-label">Contributed</span>
+      <span class="stat-label">Saved so far</span>
       <strong class="stat-value">{{ progress.contributed|taka }}</strong>
       <span class="muted small">{{ progress.percent }}% of {{ progress.target|taka }}</span>
     </div>
@@ -45,38 +45,39 @@
 
   <div class="two-col">
     <section class="panel" id="add" aria-labelledby="add-title">
-      <h2 id="add-title">Add a contribution</h2>
+      <h2 id="add-title">Add or take out money</h2>
       <form method="post" action="{% url 'finance:contribution_create' progress.goal.pk %}" class="stacked-form" novalidate>
         {% csrf_token %}
         {{ form }}
-        <div class="form-buttons"><button type="submit" class="button">Add</button></div>
+        <div class="form-buttons"><button type="submit" class="button">Save</button></div>
       </form>
-      <p class="muted small">Contributions are kept separate from expenses: they don’t change your spending, budget or surplus/deficit.</p>
+      <p class="muted small">Goal money is kept separate from expenses: adding or taking it out doesn’t change your spending, budget or surplus/deficit. You can’t take out more than the goal holds.</p>
     </section>
 
     <section class="panel" aria-labelledby="history-title">
-      <h2 id="history-title">Contributions</h2>
+      <h2 id="history-title">History</h2>
       {% if contributions %}
         <ul class="tx-list">
           {% for c in contributions %}
-            <li class="tx tx-income">
-              <span class="tx-icon" aria-hidden="true">+</span>
+            <li class="tx {% if c.is_withdrawal %}tx-expense{% else %}tx-income{% endif %}">
+              <span class="tx-icon" aria-hidden="true">{% if c.is_withdrawal %}−{% else %}+{% endif %}</span>
               <div class="tx-main">
-                <strong>{{ c.amount|taka }}</strong>
+                <strong>{% if c.is_withdrawal %}−{% endif %}{{ c.amount|taka }}</strong>
+                <span class="tx-meta">{{ c.get_kind_display }}</span>
                 <span class="tx-meta">{{ c.date|date:"j M Y" }}</span>
                 {% if c.note %}<span class="tx-note">{{ c.note }}</span>{% endif %}
               </div>
               <div class="tx-side">
                 <span class="tx-links">
-                  <a href="{% url 'finance:contribution_update' c.pk %}">Edit<span class="visually-hidden"> contribution of {{ c.amount|taka }} on {{ c.date|date:"j M" }}</span></a>
-                  <a href="{% url 'finance:contribution_delete' c.pk %}">Delete<span class="visually-hidden"> contribution of {{ c.amount|taka }} on {{ c.date|date:"j M" }}</span></a>
+                  <a href="{% url 'finance:contribution_update' c.pk %}">Edit<span class="visually-hidden"> entry of {{ c.amount|taka }} on {{ c.date|date:"j M" }}</span></a>
+                  <a href="{% url 'finance:contribution_delete' c.pk %}">Delete<span class="visually-hidden"> entry of {{ c.amount|taka }} on {{ c.date|date:"j M" }}</span></a>
                 </span>
               </div>
             </li>
           {% endfor %}
         </ul>
       {% else %}
-        <p class="muted">No contributions yet. Add the first one with the form.</p>
+        <p class="muted">Nothing added yet. Add the first amount with the form.</p>
       {% endif %}
     </section>
   </div>

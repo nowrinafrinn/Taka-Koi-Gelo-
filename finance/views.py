@@ -251,7 +251,7 @@ def day_detail(request, day):
         'contributions': contributions,
         'spent': services.money(sum((t.amount for t in expenses), Decimal('0'))),
         'received': services.money(sum((t.amount for t in income), Decimal('0'))),
-        'to_goals': services.money(sum((c.amount for c in contributions), Decimal('0'))),
+        'to_goals': services.money(sum((c.signed_amount for c in contributions), Decimal('0'))),
         'previous_day': date - datetime.timedelta(days=1),
         'next_day': following if following <= today else None,
         'month_url': month_url,
@@ -295,7 +295,8 @@ def goal_detail(request, pk):
     return render(request, 'finance/goals/detail.html', {
         'progress': services.goal_progress(goal),
         'contributions': goal.contributions.all(),
-        'form': GoalContributionForm(goal=goal),
+        # The card's "Take out" button links here with ?kind=withdrawal.
+        'form': GoalContributionForm(goal=goal, initial={'kind': 'withdrawal' if request.GET.get('kind') == 'withdrawal' else 'deposit'}),
     })
 
 
@@ -332,7 +333,10 @@ def contribution_create(request, pk):
     form = GoalContributionForm(request.POST or None, goal=goal)
     if request.method == 'POST' and form.is_valid():
         contribution = form.save()
-        messages.success(request, f'{taka(contribution.amount)} added to “{goal.name}”.')
+        if contribution.is_withdrawal:
+            messages.success(request, f'{taka(contribution.amount)} taken out of “{goal.name}”.')
+        else:
+            messages.success(request, f'{taka(contribution.amount)} added to “{goal.name}”.')
         return redirect('finance:goal_detail', pk=goal.pk)
     return render(request, 'finance/goals/contribution_form.html', {'form': form, 'goal': goal, 'is_edit': False})
 
@@ -344,7 +348,7 @@ def contribution_update(request, pk):
     form = GoalContributionForm(request.POST or None, instance=contribution, goal=contribution.goal)
     if request.method == 'POST' and form.is_valid():
         form.save()
-        messages.success(request, 'Contribution updated.')
+        messages.success(request, 'Entry updated.')
         return redirect('finance:goal_detail', pk=contribution.goal.pk)
     return render(request, 'finance/goals/contribution_form.html',
                   {'form': form, 'goal': contribution.goal, 'is_edit': True})
@@ -354,9 +358,14 @@ def contribution_update(request, pk):
 @require_http_methods(['GET', 'POST'])
 def contribution_delete(request, pk):
     contribution = get_own_contribution(request, pk)
-    if request.method == 'POST':
+    # Deleting money that was added must not leave the goal below ৳0
+    # (it would if some of that money has since been taken out).
+    balance_after = services.goal_balance(contribution.goal, exclude=contribution)
+    blocked = balance_after < 0
+    if request.method == 'POST' and not blocked:
         goal_pk = contribution.goal.pk
         contribution.delete()
-        messages.success(request, 'Contribution deleted.')
+        messages.success(request, 'Entry deleted.')
         return redirect('finance:goal_detail', pk=goal_pk)
-    return render(request, 'finance/goals/contribution_confirm_delete.html', {'contribution': contribution})
+    return render(request, 'finance/goals/contribution_confirm_delete.html',
+                  {'contribution': contribution, 'blocked': blocked, 'shortfall': -balance_after})

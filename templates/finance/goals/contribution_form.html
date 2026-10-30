@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 
-{% block title %}{% if is_edit %}Edit contribution{% else %}Add contribution{% endif %} · Taka Koi Gelo?{% endblock %}
+{% block title %}{% if is_edit %}Edit entry{% else %}Add or take out money{% endif %} · Taka Koi Gelo?{% endblock %}
 
 {% block content %}
   <section class="form-card">
-    <h1>{% if is_edit %}Edit contribution{% else %}Add contribution{% endif %}</h1>
-    <p class="lede">Towards <strong>{{ goal.name }}</strong></p>
+    <h1>{% if is_edit %}Edit entry{% else %}Add or take out money{% endif %}</h1>
+    <p class="lede">Goal: <strong>{{ goal.name }}</strong></p>
     <form method="post" novalidate>
       {% csrf_token %}
       {{ form }}

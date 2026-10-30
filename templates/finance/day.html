@@ -21,7 +21,7 @@
   <section class="stats day-stats" aria-label="Totals for this day">
     <div class="stat"><span class="stat-label">Spent</span><strong class="stat-value">{{ spent|taka }}</strong></div>
     <div class="stat"><span class="stat-label">Income</span><strong class="stat-value">{{ received|taka }}</strong></div>
-    <div class="stat"><span class="stat-label">To goals</span><strong class="stat-value">{{ to_goals|taka }}</strong></div>
+    <div class="stat"><span class="stat-label">Goals (net)</span><strong class="stat-value">{{ to_goals|taka }}</strong></div>
   </section>
 
   {# Quick add with this day's date filled in; after saving you come back here. #}
@@ -48,16 +48,16 @@
   {% if contributions %}
     <section class="panel" aria-labelledby="day-goals">
       <h2 id="day-goals">Savings goals</h2>
-      <p class="small muted">Set aside for goals, kept separate from spending.</p>
+      <p class="small muted">Added to or taken out of goals, kept separate from spending.</p>
       <ul class="tx-list">
         {% for c in contributions %}
-          <li class="tx tx-income">
-            <span class="tx-icon" aria-hidden="true">+</span>
+          <li class="tx {% if c.is_withdrawal %}tx-expense{% else %}tx-income{% endif %}">
+            <span class="tx-icon" aria-hidden="true">{% if c.is_withdrawal %}−{% else %}+{% endif %}</span>
             <div class="tx-main">
               <strong><a href="{% url 'finance:goal_detail' c.goal.pk %}">{{ c.goal.name }}</a></strong>
               {% if c.note %}<span class="tx-note">{{ c.note }}</span>{% endif %}
             </div>
-            <div class="tx-side"><span class="tx-amount">{{ c.amount|taka }}</span></div>
+            <div class="tx-side"><span class="tx-amount">{% if c.is_withdrawal %}−{% endif %}{{ c.amount|taka }}</span></div>
           </li>
         {% endfor %}
       </ul>

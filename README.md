@@ -52,7 +52,8 @@ about the numbers, and a little playful.
   - **Surplus/deficit** = recorded income − recorded expenses. A surplus isn't presented as confirmed savings. Months with expenses but **no recorded income** get no surplus/deficit verdict. Over budget stays a separate flag.
   - A table doubles as the accessible version of the chart. On phones the chart scrolls within its card.
 - **Savings goals (`/goals/`):** goals with a target and an optional date.
-  - Record, edit and delete contributions. Each goal shows contributed, remaining, a percentage and a progress bar; completed goals are listed separately, and overdue ones are flagged.
+  - Add money to a goal or take money out, and edit or delete either. Every goal total is net (added minus taken out). You can't take out more than the goal holds, and deleting added money that has since been taken out is blocked, so a goal never goes below ৳0. A month where more was taken out than added counts as a 0% savings rate.
+  - Each goal card has **+ Add money**, **− Take out** (once there is money in the goal) and **View & edit**. Each goal shows saved so far, remaining, a percentage and a progress bar; completed goals are listed separately, and overdue ones are flagged.
   - Contributions are kept **separate from expenses**: they never change spending, the budget, surplus/deficit or the available balance.
   - The dashboard shows "set aside for goals" next to the balance. The stats page shows contributions and the **savings rate** (contributions ÷ income × 100, or **N/A** without income).
 - **3D wallet (Three.js):** procedural wallet and coins.
@@ -139,6 +140,7 @@ erDiagram
         date target_date "optional"
     }
     GOAL_CONTRIBUTION {
+        string kind "deposit | withdrawal"
         decimal amount "12,2 · > 0"
         date date "not in the future"
         string note

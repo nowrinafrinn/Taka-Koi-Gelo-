@@ -21,6 +21,9 @@
   </p>
   <div class="actions goal-actions">
     <a class="button" href="{% url 'finance:goal_detail' p.goal.pk %}#add">+ Add money<span class="visually-hidden"> to {{ p.goal.name }}</span></a>
+    {% if p.contributed > 0 %}
+      <a class="button button-quiet" href="{% url 'finance:goal_detail' p.goal.pk %}?kind=withdrawal#add">− Take out<span class="visually-hidden"> of {{ p.goal.name }}</span></a>
+    {% endif %}
     <a class="button button-quiet" href="{% url 'finance:goal_detail' p.goal.pk %}">View &amp; edit<span class="visually-hidden"> {{ p.goal.name }}</span></a>
   </div>
 </article>

@@ -4,6 +4,8 @@ from django import forms
 from django.utils import timezone
 
 from .models import GoalContribution, MonthlyBudget, SavingsGoal, Transaction
+from .services import goal_balance
+from .templatetags.money import taka
 
 
 class BudgetForm(forms.ModelForm):
@@ -151,22 +153,46 @@ class SavingsGoalForm(forms.ModelForm):
 
 
 class GoalContributionForm(forms.ModelForm):
-    """Amount, date and note. The goal comes from the URL, never from the form."""
+    """Add or take out, amount, date and note. The goal comes from the URL,
+    never from the form. The goal's balance can never go below ৳0."""
 
     class Meta:
         model = GoalContribution
-        fields = ['amount', 'date', 'note']
+        fields = ['kind', 'amount', 'date', 'note']
         widgets = {
+            'kind': forms.RadioSelect,
             'amount': forms.NumberInput(attrs={'step': '0.01', 'min': '0.01', 'inputmode': 'decimal'}),
             'date': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
             'note': forms.TextInput(attrs={'placeholder': 'e.g. From tuition money'}),
         }
-        labels = {'amount': 'Amount (৳)'}
+        labels = {'kind': 'Money', 'amount': 'Amount (৳)'}
 
     def __init__(self, *args, goal, **kwargs):
         super().__init__(*args, **kwargs)
         self.instance.goal = goal
+        self.fields['kind'].choices = GoalContribution.Kind.choices   # no blank option
+        self.fields['kind'].required = False                          # missing means "Added"
+        if not self.instance.pk:
+            self.fields['kind'].initial = GoalContribution.Kind.DEPOSIT
         today = timezone.localdate()
         self.fields['date'].widget.attrs['max'] = today.isoformat()
         if not self.instance.pk:
             self.fields['date'].initial = today
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get('kind') and 'kind' not in self.errors:
+            # An edit without `kind` keeps its current direction; a new entry adds money.
+            cleaned['kind'] = self.instance.kind if self.instance.pk else GoalContribution.Kind.DEPOSIT
+        kind, amount = cleaned.get('kind'), cleaned.get('amount')
+        if kind and amount:
+            others = goal_balance(self.instance.goal, exclude=self.instance)
+            change = -amount if kind == GoalContribution.Kind.WITHDRAWAL else amount
+            if others + change < 0:
+                if kind == GoalContribution.Kind.WITHDRAWAL:
+                    self.add_error('amount', f'You can take out at most {taka(max(others, 0))}: '
+                                             'that is all the money in this goal.')
+                else:
+                    self.add_error('amount', f'Money already taken out of this goal needs at least '
+                                             f'{taka(-others)} here.')
+        return cleaned

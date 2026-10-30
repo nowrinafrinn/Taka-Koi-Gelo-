@@ -14,7 +14,7 @@ import datetime
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Case, Count, F, Q, Sum, When
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
@@ -528,13 +528,25 @@ def first_transaction_year(user, today=None):
 # expenses: they do not change income, expenses, surplus/deficit, the budget
 # or the available balance. They are reported on their own, and the savings
 # rate is contributions / income x 100 (None, shown as "N/A", without income).
+#
+# A contribution is either money added to a goal or money taken out of it.
+# Amounts are stored positive; every total below is net: added minus taken out.
+
+
+def signed_amount(prefix=''):
+    """+amount for money added, -amount for money taken out (for Sum())."""
+    return Case(
+        When(**{f'{prefix}kind': GoalContribution.Kind.WITHDRAWAL}, then=-F(f'{prefix}amount')),
+        default=F(f'{prefix}amount'),
+    )
 
 
 def savings_rate(contributions, income):
-    """Recorded contributions as a % of recorded income, or None if no income."""
+    """Recorded contributions as a % of recorded income, or None if no income.
+    A month where more was taken out than added counts as 0%, never negative."""
     if not income:
         return None
-    return (contributions * 100 / income).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+    return (max(contributions, ZERO) * 100 / income).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
 
 
 @dataclass
@@ -571,14 +583,23 @@ class GoalProgress:
 
 def goal_progress(goal, today=None):
     """Progress for one goal (one query)."""
-    total = goal.contributions.aggregate(total=Sum('amount'))['total']
+    total = goal.contributions.aggregate(total=Sum(signed_amount()))['total']
     return GoalProgress(goal=goal, contributed=money(total), today=today or timezone.localdate())
+
+
+def goal_balance(goal, exclude=None):
+    """Money currently in `goal` (added minus taken out), optionally ignoring
+    one contribution, e.g. the one being edited or deleted. One query."""
+    entries = goal.contributions.all()
+    if exclude is not None and exclude.pk:
+        entries = entries.exclude(pk=exclude.pk)
+    return money(entries.aggregate(total=Sum(signed_amount()))['total'])
 
 
 def goals_with_progress(user, today=None):
     """(active, completed) lists of GoalProgress. One query for all goals."""
     today = today or timezone.localdate()
-    goals = SavingsGoal.objects.filter(user=user).annotate(contributed=Sum('contributions__amount'))
+    goals = SavingsGoal.objects.filter(user=user).annotate(contributed=Sum(signed_amount('contributions__')))
     progress = [GoalProgress(goal=g, contributed=money(g.contributed), today=today) for g in goals]
     return [p for p in progress if not p.is_complete], [p for p in progress if p.is_complete]
 
@@ -586,13 +607,13 @@ def goals_with_progress(user, today=None):
 def contributions_between(user, start, end):
     """Total contributed by the user, across all goals, dated start..end. One query."""
     total = GoalContribution.objects.filter(goal__user=user, date__range=(start, end)).aggregate(
-        total=Sum('amount'))['total']
+        total=Sum(signed_amount()))['total']
     return money(total)
 
 
 def total_set_aside(user):
     """All contributions ever recorded (for the dashboard). One query."""
-    total = GoalContribution.objects.filter(goal__user=user).aggregate(total=Sum('amount'))['total']
+    total = GoalContribution.objects.filter(goal__user=user).aggregate(total=Sum(signed_amount()))['total']
     return money(total)
 
 
@@ -601,7 +622,7 @@ def contributions_by_month(user, start, end):
     rows = (
         GoalContribution.objects.filter(goal__user=user, date__range=(start, end))
         .annotate(month=TruncMonth('date')).values('month')
-        .annotate(total=Sum('amount')).order_by('month')
+        .annotate(total=Sum(signed_amount())).order_by('month')
     )
     return {row['month']: money(row['total']) for row in rows}
 
@@ -701,6 +722,10 @@ def _savings_insights(stat, previous_start, previous_contributions):
     current = stat.contributions
     insights = []
 
+    if current < 0:
+        insights.append(Insight(f'You took {taka(-current)} more out of your savings goals than you put in '
+                                f'during {this}{so_far}.'))
+        return insights
     if current:
         text = f'You contributed {taka(current)} towards your savings goals in {this}{so_far}'
         if stat.savings_rate is not None:
