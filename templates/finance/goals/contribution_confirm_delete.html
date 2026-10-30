@@ -16,6 +16,10 @@
       <p class="form-error" role="alert">This can’t be deleted: some of this money has already been taken out,
         so the goal would go {{ shortfall|taka }} below ৳0. Delete or reduce the later withdrawal first.</p>
       <p><a class="button button-quiet" href="{% url 'finance:goal_detail' contribution.goal.pk %}">Back to the goal</a></p>
+    {% elif over_saved %}
+      <p class="form-error" role="alert">This can’t be deleted: it would put the money back into the goal, and your goals
+        would then hold {{ over_saved|taka }} more than your balance. That money has been spent since.</p>
+      <p><a class="button button-quiet" href="{% url 'finance:goal_detail' contribution.goal.pk %}">Back to the goal</a></p>
     {% else %}
       <p class="muted">The goal’s progress will go {% if contribution.is_withdrawal %}up{% else %}down{% endif %} by this amount. This cannot be undone.</p>
       <form method="post">

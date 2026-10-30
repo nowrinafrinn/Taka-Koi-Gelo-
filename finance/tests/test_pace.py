@@ -123,6 +123,7 @@ class DashboardRefocusTests(TestCase):
         self.assertContains(response, 'will appear here as you add expenses')
 
     def test_allowance_and_pace_with_budget(self):
+        Transaction.objects.create(user=self.user, kind='income', amount=D('50000'), category='tuition', date=self.today)
         MonthlyBudget.objects.create(user=self.user, month=self.today, limit=D('3000'))
         spend(self.user, '100', self.today)
         response = self.client.get(reverse('finance:dashboard'))

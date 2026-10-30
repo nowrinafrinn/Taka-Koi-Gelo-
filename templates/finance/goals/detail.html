@@ -46,6 +46,13 @@
   <div class="two-col">
     <section class="panel" id="add" aria-labelledby="add-title">
       <h2 id="add-title">Add or take out money</h2>
+      {% if spendable > 0 %}
+        <p class="small muted">You can add up to <strong>{{ spendable|taka }}</strong>: your spendable money.</p>
+      {% elif spendable == 0 %}
+        <p class="small muted">You have <strong>৳0.00</strong> spendable, so there’s nothing to add right now. Record income, or take money out of another goal.</p>
+      {% else %}
+        <p class="form-error small">Your goals hold {{ spendable|taka|cut:'-' }} more than your balance. Take that much out of a goal.</p>
+      {% endif %}
       <form method="post" action="{% url 'finance:contribution_create' progress.goal.pk %}" class="stacked-form" novalidate>
         {% csrf_token %}
         {{ form }}

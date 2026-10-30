@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from finance import services
 from finance.forms import GoalContributionForm
-from finance.models import GoalContribution, SavingsGoal
+from finance.models import GoalContribution, SavingsGoal, Transaction
 
 User = get_user_model()
 D = Decimal
@@ -19,6 +19,10 @@ ADDED, TAKEN = GoalContribution.Kind.DEPOSIT, GoalContribution.Kind.WITHDRAWAL
 
 def entry(g, amount, kind=ADDED, date=TODAY):
     return GoalContribution.objects.create(goal=g, amount=D(amount), kind=kind, date=date)
+
+
+def income(user, amount, date=TODAY):
+    return Transaction.objects.create(user=user, kind='income', amount=D(amount), category='tuition', date=date)
 
 
 class NetTotalsTests(TestCase):
@@ -55,6 +59,7 @@ class WithdrawalFormTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user('mitu', password='x')
+        income(cls.user, '10000')
         cls.goal = SavingsGoal.objects.create(user=cls.user, name='Phone', target_amount=D('1000'))
         cls.deposit = entry(cls.goal, '500')
 
@@ -125,6 +130,7 @@ class WithdrawalViewTests(TestCase):
         self.assertTrue(GoalContribution.objects.filter(pk=deposit.pk).exists())
 
     def test_deleting_a_withdrawal_puts_money_back(self):
+        income(self.user, '1000', self.today)
         entry(self.goal, '500', date=self.today)
         out = entry(self.goal, '300', TAKEN, date=self.today)
         self.client.post(reverse('finance:contribution_delete', args=[out.pk]))

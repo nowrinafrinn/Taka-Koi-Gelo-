@@ -34,8 +34,8 @@ about the numbers, and a little playful.
 - **Income and expenses:** add, edit and delete. Kind-specific categories (Pocket money, Tuition… / Food, Transport…), payment methods including bKash, Nagad and Rocket, a date and an optional note.
 - **Filters:** by type, category and date range. Filtered views have bookmarkable URLs and paginate.
 - **Dashboard ("right now"):**
-  - the all-time available balance and this month's income and spending;
-  - **safe to spend per day**: budget left ÷ days left, rounded down;
+  - the all-time **total balance**, split into **saved in goals** (with a per-goal breakdown) and **spendable** (total − saved), plus this month's income and spending. If goals hold more than the balance, spendable goes negative and a warning says how much to take out of a goal; data is never changed automatically;
+  - **safe to spend per day**: the smaller of budget left and spendable money, ÷ days left, rounded down, so it never suggests spending money that sits in goals;
   - the budget card;
   - a **spending pace** line chart: this month's running total against an even pace through the budget and against last month (no projections);
   - goal progress and recent transactions.
@@ -54,8 +54,9 @@ about the numbers, and a little playful.
 - **Savings goals (`/goals/`):** goals with a target and an optional date.
   - Add money to a goal or take money out, and edit or delete either. Every goal total is net (added minus taken out). You can't take out more than the goal holds, and deleting added money that has since been taken out is blocked, so a goal never goes below ৳0. A month where more was taken out than added counts as a 0% savings rate.
   - Each goal card has **+ Add money**, **− Take out** (once there is money in the goal) and **View & edit**. Each goal shows saved so far, remaining, a percentage and a progress bar; completed goals are listed separately, and overdue ones are flagged.
-  - Contributions are kept **separate from expenses**: they never change spending, the budget, surplus/deficit or the available balance.
-  - The dashboard shows "set aside for goals" next to the balance. The stats page shows contributions and the **savings rate** (contributions ÷ income × 100, or **N/A** without income).
+  - Contributions are kept **separate from expenses**: they never change spending, the budget, surplus/deficit or the total balance.
+  - Goals can only hold money you have: adding to a goal is capped at your spendable money (the form says how much you can add). Lowering an amount or taking money out is always allowed, so an over-saved account can be fixed. Deleting a withdrawal whose money has since been spent is blocked. Expenses are never blocked: they record what already happened.
+  - The stats page shows contributions and the **savings rate** (contributions ÷ income × 100, or **N/A** without income).
 - **3D wallet (Three.js):** procedural wallet and coins.
   - Coins in the wallet reflect your balance band.
   - A "spent" stack shows this month's expenses.
@@ -155,12 +156,14 @@ constraints back up the model validation.
 
 | Figure | Definition |
 |---|---|
-| Available balance | All income ever recorded − all expenses ever recorded (labelled "all time") |
+| Total balance | All income ever recorded − all expenses ever recorded (labelled "all time"); includes money in goals |
+| Saved in goals | Net money in all goals (added − taken out) |
+| Spendable | Total balance − saved in goals. The most you can add to goals; negative means goals hold more than you have |
 | This month | The calendar month containing today **in Asia/Dhaka**, judged by each transaction's own date |
 | Budget remaining | This month's limit − this month's expenses (may be negative) |
 | Budget warning | Spent ≥ 80% of the limit (exact comparison, not the rounded percentage) |
 | Surplus / deficit | A month's recorded income − recorded expenses. A surplus is *not* presented as savings. A month with expenses but no recorded income gets no verdict. |
-| Savings contributions | Money recorded towards goals, in its own table. Never an expense; never subtracted from the balance. |
+| Savings contributions | Money recorded towards goals, in its own table. Never an expense; part of the total balance, subtracted only to get spendable. |
 | Savings rate | Contributions ÷ recorded income × 100 for the period, or "N/A" when there's no income |
 
 All money is `Decimal` with 2 places, from the database to the template. Sums

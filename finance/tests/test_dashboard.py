@@ -65,7 +65,7 @@ class WalletAssetsTests(TestCase):
         response = self.client.get(reverse('finance:dashboard'))
         self.assertContains(response, 'id="wallet-stage"')
         self.assertContains(response, '<svg viewBox="0 0 260 200"')   # fallback illustration
-        self.assertContains(response, 'Available balance')              # figures do not need JS
+        self.assertContains(response, 'Total balance')              # figures do not need JS
 
     def test_vendored_files_exist(self):
         from django.contrib.staticfiles import finders

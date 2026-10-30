@@ -228,6 +228,7 @@ class GoalViewTests(TestCase):
         self.assertFalse(GoalContribution.objects.exists())
 
     def test_add_edit_delete_contribution(self):
+        add(self.user, 'income', '5000', timezone.localdate())
         g = goal(self.user)
         today = timezone.localdate().isoformat()
         response = self.client.post(reverse('finance:contribution_create', args=[g.pk]),
@@ -251,19 +252,22 @@ class GoalViewTests(TestCase):
         self.assertFalse(GoalContribution.objects.exists())
 
     def test_contribution_never_creates_a_transaction(self):
+        add(self.user, 'income', '5000', timezone.localdate())
         g = goal(self.user)
         self.client.post(reverse('finance:contribution_create', args=[g.pk]),
                          {'amount': '500', 'date': timezone.localdate().isoformat()})
         self.assertEqual(GoalContribution.objects.count(), 1)
-        self.assertFalse(Transaction.objects.exists())
+        self.assertEqual(Transaction.objects.count(), 1)                 # only the income
 
     def test_dashboard_shows_set_aside_without_changing_balance(self):
         add(self.user, 'income', '10000', timezone.localdate())
         contribute(goal(self.user), '4000', timezone.localdate())
         response = self.client.get(reverse('finance:dashboard'))
-        self.assertContains(response, '৳10,000.00')                     # balance unchanged
-        self.assertContains(response, '৳4,000.00 set aside for goals')
-        self.assertContains(response, '৳6,000.00 not set aside')
+        split = response.context['split']
+        self.assertEqual((split.total, split.saved, split.spendable), (D('10000.00'), D('4000.00'), D('6000.00')))
+        self.assertContains(response, '৳10,000.00')                     # total balance includes savings
+        self.assertContains(response, 'New phone ৳4,000.00')
+        self.assertNotContains(response, 'more than your balance')
 
     def test_stats_show_contributions_and_na_rate(self):
         contribute(goal(self.user), '300', timezone.localdate())

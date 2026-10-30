@@ -35,7 +35,7 @@ def dashboard(request):
     # pop(): the save animation plays once, then the flag is gone, so a
     # refresh or a later visit never replays it.
     event = request.session.pop(WALLET_EVENT_KEY, None)
-    set_aside = services.total_set_aside(request.user)
+    split = services.get_money_split(request.user, total=summary.balance)
     pace = services.get_spending_pace(
         request.user, summary.budget.limit if summary.budget else None, summary.today,
     )
@@ -46,9 +46,8 @@ def dashboard(request):
         'goals': active_goals[:3],
         'summary': summary,
         'wallet': services.wallet_visuals(summary, event),
-        # Shown next to the balance, never subtracted from it (no double counting).
-        'set_aside': set_aside,
-        'not_set_aside': summary.balance - set_aside,
+        'split': split,   # total balance = saved in goals + spendable
+        'safe': services.safe_to_spend(summary.budget, split.spendable),
     })
 
 
@@ -297,6 +296,7 @@ def goal_detail(request, pk):
         'contributions': goal.contributions.all(),
         # The card's "Take out" button links here with ?kind=withdrawal.
         'form': GoalContributionForm(goal=goal, initial={'kind': 'withdrawal' if request.GET.get('kind') == 'withdrawal' else 'deposit'}),
+        'spendable': services.spendable_for_goals(request.user),
     })
 
 
@@ -362,10 +362,17 @@ def contribution_delete(request, pk):
     # (it would if some of that money has since been taken out).
     balance_after = services.goal_balance(contribution.goal, exclude=contribution)
     blocked = balance_after < 0
-    if request.method == 'POST' and not blocked:
+    # Deleting a withdrawal puts its money back into the goal: blocked if goals
+    # would then hold more than the balance.
+    over_saved = 0
+    if contribution.is_withdrawal:
+        spendable_after = services.spendable_for_goals(request.user, exclude=contribution)
+        over_saved = max(-spendable_after, 0)
+    if request.method == 'POST' and not blocked and not over_saved:
         goal_pk = contribution.goal.pk
         contribution.delete()
         messages.success(request, 'Entry deleted.')
         return redirect('finance:goal_detail', pk=goal_pk)
     return render(request, 'finance/goals/contribution_confirm_delete.html',
-                  {'contribution': contribution, 'blocked': blocked, 'shortfall': -balance_after})
+                  {'contribution': contribution, 'blocked': blocked, 'shortfall': -balance_after,
+                   'over_saved': over_saved})

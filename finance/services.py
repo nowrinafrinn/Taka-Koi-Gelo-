@@ -617,6 +617,85 @@ def total_set_aside(user):
     return money(total)
 
 
+def total_balance(user):
+    """All income recorded minus all expenses recorded. One query."""
+    totals = Transaction.objects.filter(user=user).aggregate(
+        income=Sum('amount', filter=Q(kind=Transaction.Kind.INCOME)),
+        expenses=Sum('amount', filter=Q(kind=Transaction.Kind.EXPENSE)),
+    )
+    return money(totals['income']) - money(totals['expenses'])
+
+
+# Money split: the balance is everything you have; part of it sits in goals.
+# Spendable = balance - saved in goals. It goes below 0 when goals hold more
+# than the balance (over-saved, or an expense spent into savings): that is
+# shown as a warning, never silently fixed.
+
+
+@dataclass
+class MoneySplit:
+    total: Decimal        # all income - all expenses (includes savings)
+    saved: Decimal        # net money in all goals
+    goals: list           # [(goal, amount)] with money in them, biggest first
+
+    @property
+    def spendable(self):
+        return self.total - self.saved
+
+    @property
+    def over_saved(self):
+        """How far goals exceed the balance, as a positive amount (0 if not)."""
+        return max(-self.spendable, ZERO)
+
+    @property
+    def saved_percent(self):
+        """Width of the 'saved' part of the bar, 0-100."""
+        if self.total <= 0:
+            return Decimal('100') if self.saved > 0 else ZERO
+        return min(percent(self.saved, self.total), Decimal('100'))
+
+
+def get_money_split(user, total=None):
+    """Total / saved / spendable. Pass `total` when it's already known (the
+    dashboard has it) to save a query. One or two queries."""
+    if total is None:
+        total = total_balance(user)
+    goals = (
+        SavingsGoal.objects.filter(user=user)
+        .annotate(amount=Sum(signed_amount('contributions__')))
+        .filter(amount__gt=0).order_by('-amount', 'name')
+    )
+    pairs = [(g, money(g.amount)) for g in goals]
+    return MoneySplit(total=total, saved=sum((a for _, a in pairs), ZERO), goals=pairs)
+
+
+def spendable_for_goals(user, exclude=None):
+    """Balance minus money in all goals, optionally ignoring one entry (the one
+    being edited). This is the most that can be added to goals."""
+    others = GoalContribution.objects.filter(goal__user=user)
+    if exclude is not None and exclude.pk:
+        others = others.exclude(pk=exclude.pk)
+    saved = money(others.aggregate(total=Sum(signed_amount()))['total'])
+    return total_balance(user) - saved
+
+
+@dataclass
+class SafeToSpend:
+    left: Decimal                # what can still be spent this month
+    per_day: Decimal             # left / days left, rounded down
+    limited_by_savings: bool     # spendable money, not the budget, set the limit
+
+
+def safe_to_spend(budget, spendable):
+    """The budget's daily allowance, but never more than the spendable money:
+    without this cap it could suggest spending money that sits in goals."""
+    if budget is None:
+        return None
+    left = min(max(budget.remaining, ZERO), max(spendable, ZERO))
+    per_day = (left / budget.days_left).quantize(CENT, rounding=ROUND_DOWN) if left > 0 else ZERO
+    return SafeToSpend(left=left, per_day=per_day, limited_by_savings=spendable < budget.remaining)
+
+
 def contributions_by_month(user, start, end):
     """{month_start: total} of contributions dated start..end. One query."""
     rows = (

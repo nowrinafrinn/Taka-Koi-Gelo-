@@ -4,7 +4,7 @@ from django import forms
 from django.utils import timezone
 
 from .models import GoalContribution, MonthlyBudget, SavingsGoal, Transaction
-from .services import goal_balance
+from .services import ZERO, goal_balance, spendable_for_goals
 from .templatetags.money import taka
 
 
@@ -195,4 +195,20 @@ class GoalContributionForm(forms.ModelForm):
                 else:
                     self.add_error('amount', f'Money already taken out of this goal needs at least '
                                              f'{taka(-others)} here.')
+            else:
+                self._check_spendable(change)
         return cleaned
+
+    def _check_spendable(self, change):
+        """Goals can only hold money you have: what goes in can't exceed the
+        balance minus what's already in goals. A change that lowers the total
+        saved is always allowed, so an over-saved account can be fixed."""
+        before = self.instance.signed_amount if self.instance.pk else ZERO   # instance not updated yet
+        if change <= before:
+            return
+        spendable = spendable_for_goals(self.instance.goal.user, exclude=self.instance)
+        if change > spendable:
+            # `spendable` already ignores this entry, so it's the most this entry can be.
+            self.add_error('amount', f'You can add at most {taka(max(spendable, ZERO))}: that’s your spendable money '
+                                     '(your balance minus what’s already in goals). Record income first, '
+                                     'or take money out of another goal.')

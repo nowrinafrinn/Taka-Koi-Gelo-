@@ -301,6 +301,20 @@ a:hover { color: var(--note-strong); }
 .balance-value { font-family: var(--font-display); font-size: clamp(2.2rem, 1.6rem + 3vw, 3.25rem); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 .balance-card .negative { color: inherit; }
 .balance-note { font-size: 0.85rem; opacity: 0.85; margin: 0; }
+.balance-split { display: grid; gap: var(--space-3); }
+.split-bar { height: 10px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--on-note) 14%, transparent); }
+.split-bar span { display: block; height: 100%; background: var(--on-note); border-radius: 999px; }
+.split-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.split-pair > div { border-radius: var(--radius-sm); padding: var(--space-3); background: color-mix(in srgb, var(--on-note) 10%, transparent); min-width: 0; }
+.split-pair > div:first-child { box-shadow: inset 4px 0 0 var(--on-note); }   /* matches the filled part of the bar */
+.split-pair span { display: block; font-size: 0.8rem; opacity: 0.9; }
+.split-pair strong { font-family: var(--font-display); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.split-detail { display: block; font-size: 0.78rem; margin-top: 2px; overflow-wrap: anywhere; }
+.split-warning {
+  margin: 0; padding: var(--space-3); border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600;
+  background: var(--danger-soft); color: var(--danger);
+}
+.split-warning a { color: inherit; }
 .month-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
 .month-pair div {
   background: color-mix(in srgb, var(--on-note) 10%, transparent);

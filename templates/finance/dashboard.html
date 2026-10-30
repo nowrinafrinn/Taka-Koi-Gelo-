@@ -32,16 +32,39 @@
   <section class="hero" aria-label="Summary">
     <div class="balance-card">
       <div>
-        <span class="balance-label">Available balance · all time</span>
-        <div class="balance-value">{{ summary.balance|taka }}</div>
+        <span class="balance-label">Total balance · all time</span>
+        <div class="balance-value">{{ split.total|taka }}</div>
         <p class="balance-note">
-          {% if summary.balance < 0 %}You have recorded more spending than income.
-          {% else %}All income recorded minus all spending recorded.{% endif %}
+          {% if split.total < 0 %}You have recorded more spending than income.
+          {% else %}All income minus all spending, including what’s saved in goals.{% endif %}
         </p>
-        {% if set_aside %}
-          <p class="balance-note">
-            <a class="on-note-link" href="{% url 'finance:goal_list' %}">{{ set_aside|taka }} set aside for goals</a>
-            {% if not_set_aside >= 0 %}· {{ not_set_aside|taka }} not set aside{% else %}· more than your recorded balance{% endif %}
+      </div>
+
+      {# Total = saved in goals + spendable. Shown as two parts of one bar. #}
+      <div class="balance-split">
+        {% if split.saved > 0 %}
+          <div class="split-bar" aria-hidden="true"><span style="width: {{ split.saved_percent|stringformat:'s' }}%"></span></div>
+        {% endif %}
+        <div class="split-pair">
+          <div>
+            <span>Saved in goals</span>
+            <strong>{{ split.saved|taka }}</strong>
+            {% if split.goals %}
+              <a class="on-note-link split-detail" href="{% url 'finance:goal_list' %}">{% for g, amount in split.goals %}{{ g.name }} {{ amount|taka }}{% if not forloop.last %} · {% endif %}{% endfor %}</a>
+            {% else %}
+              <a class="on-note-link split-detail" href="{% url 'finance:goal_list' %}">No money in goals yet</a>
+            {% endif %}
+          </div>
+          <div>
+            <span>Spendable</span>
+            <strong>{{ split.spendable|taka }}</strong>
+            <span class="split-detail">Balance minus savings</span>
+          </div>
+        </div>
+        {% if split.over_saved %}
+          <p class="split-warning" role="alert">
+            Your goals hold {{ split.over_saved|taka }} more than your balance{% if split.total >= 0 %}: you’ve spent into your savings, or saved more than you had{% endif %}.
+            <a href="{% url 'finance:goal_list' %}">Take {{ split.over_saved|taka }} out of a goal</a> to fix it.
           </p>
         {% endif %}
       </div>
@@ -75,8 +98,12 @@
         {% elif b.state == 'over' %}
           <p class="allowance-value negative">৳0.00</p>
           <p class="small">You’re {{ b.overspent|taka }} over this month’s budget.</p>
+        {% elif safe.limited_by_savings %}
+          {# The budget allows more than you can spend without touching goal money. #}
+          <p class="allowance-value">{{ safe.per_day|taka }}</p>
+          <p class="small muted">{% if safe.left %}Only {{ safe.left|taka }} is{% else %}Nothing is{% endif %} spendable outside your goals ({{ b.remaining|taka }} of the budget is left) · {{ b.days_left }} day{{ b.days_left|pluralize }} to go, including today</p>
         {% else %}
-          <p class="allowance-value">{{ b.daily_allowance|taka }}</p>
+          <p class="allowance-value">{{ safe.per_day|taka }}</p>
           <p class="small muted">{{ b.remaining|taka }} of the budget left · {{ b.days_left }} day{{ b.days_left|pluralize }} to go, including today</p>
         {% endif %}
       {% endwith %}
