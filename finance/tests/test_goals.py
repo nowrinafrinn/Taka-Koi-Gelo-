@@ -170,6 +170,13 @@ class GoalViewTests(TestCase):
         response = self.client.get(reverse('finance:goal_list'))
         self.assertContains(response, 'No savings goals yet')
 
+    def test_card_has_add_money_button(self):
+        goal = SavingsGoal.objects.create(user=self.user, name='Phone', target_amount=D('1000'))
+        detail = reverse('finance:goal_detail', args=[goal.pk])
+        response = self.client.get(reverse('finance:goal_list'))
+        self.assertContains(response, f'href="{detail}#add">+ Add money')
+        self.assertContains(self.client.get(detail), 'id="add"')
+
     def test_create_goal(self):
         response = self.client.post(reverse('finance:goal_create'),
                                     {'name': '  Laptop ', 'target_amount': '60000', 'target_date': ''})

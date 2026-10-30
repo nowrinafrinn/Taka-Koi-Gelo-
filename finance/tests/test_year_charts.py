@@ -141,3 +141,30 @@ class YearViewChartsTests(TestCase):
         self.assertEqual([c.value for c in response.context['category_legend']], ['food', 'transport'])
         self.assertContains(response, '1 of 1 month with a budget went over.')
         self.assertContains(response, '৳600.00</span> <span class="muted small">· 75.0%')
+
+
+class MonthResultMarkTests(TestCase):
+    """Surplus/deficit use triangles, so they never share a look with the bars."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('mitu', password='x')
+        self.client.force_login(self.user)
+        self.today = timezone.localdate()
+
+    def get(self):
+        return self.client.get(reverse('finance:stats'), {'view': 'year', 'year': self.today.year})
+
+    def test_surplus_is_an_up_triangle(self):
+        Transaction.objects.create(user=self.user, kind='income', amount=D('900'), category='tuition', date=self.today)
+        spend(self.user, '100', self.today)
+        response = self.get()
+        self.assertContains(response, 'class="mark-surplus"')
+        self.assertNotContains(response, 'class="dot-surplus"')
+        self.assertContains(response, '<span class="shape shape-surplus">▲</span>Surplus')
+
+    def test_deficit_is_a_down_triangle(self):
+        Transaction.objects.create(user=self.user, kind='income', amount=D('100'), category='tuition', date=self.today)
+        spend(self.user, '900', self.today)
+        response = self.get()
+        self.assertContains(response, 'class="mark-deficit"')
+        self.assertNotContains(response, 'class="dot-deficit"')

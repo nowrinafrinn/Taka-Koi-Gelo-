@@ -19,4 +19,8 @@
     {% else %}{{ p.remaining|taka }} to go{% endif %}
     {% if p.goal.target_date %} · Target date {{ p.goal.target_date|date:"j M Y" }}{% endif %}
   </p>
+  <div class="actions goal-actions">
+    <a class="button" href="{% url 'finance:goal_detail' p.goal.pk %}#add">+ Add money<span class="visually-hidden"> to {{ p.goal.name }}</span></a>
+    <a class="button button-quiet" href="{% url 'finance:goal_detail' p.goal.pk %}">View &amp; edit<span class="visually-hidden"> {{ p.goal.name }}</span></a>
+  </div>
 </article>

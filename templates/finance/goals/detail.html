@@ -44,7 +44,7 @@
   </div>
 
   <div class="two-col">
-    <section class="panel" aria-labelledby="add-title">
+    <section class="panel" id="add" aria-labelledby="add-title">
       <h2 id="add-title">Add a contribution</h2>
       <form method="post" action="{% url 'finance:contribution_create' progress.goal.pk %}" class="stacked-form" novalidate>
         {% csrf_token %}

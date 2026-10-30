@@ -285,12 +285,17 @@
             <h2 id="chart-title">Income vs expenses</h2>
           </div>
           <ul class="chart-legend" aria-hidden="true">
+            <li class="legend-heading">Bars</li>
             <li><span class="swatch swatch-income"></span>Income</li>
             <li><span class="swatch swatch-expense"></span>Expenses</li>
-            <li><span class="dot dot-surplus"></span>Surplus</li>
-            <li><span class="dot dot-deficit"></span>Deficit</li>
-            <li><span class="dot dot-no_income"></span>No income recorded</li>
             <li><span class="marker-sample">!</span>Over budget</li>
+          </ul>
+          {# Month results use shapes, not just colour, so they never look like the bars. #}
+          <ul class="chart-legend" aria-hidden="true">
+            <li class="legend-heading">Month result</li>
+            <li><span class="shape shape-surplus">▲</span>Surplus</li>
+            <li><span class="shape shape-deficit">▼</span>Deficit</li>
+            <li><span class="dot dot-no_income"></span>No income recorded</li>
           </ul>
 
           {# Drawn by Django: no JavaScript. The table below has the same data for screen readers. #}
@@ -310,7 +315,13 @@
                   {% if g.over_budget %}
                     <text class="over-marker" x="{{ g.marker_x }}" y="{{ g.marker_y }}" text-anchor="middle">!</text>
                   {% endif %}
-                  <circle class="dot-{{ g.verdict }}" cx="{{ g.center }}" cy="{{ chart.dot_y }}" r="6"/>
+                  {% if g.verdict == 'surplus' %}
+                    <path class="mark-surplus" transform="translate({{ g.center }} {{ chart.dot_y }})" d="M0 -8 L8 6 L-8 6 Z"/>
+                  {% elif g.verdict == 'deficit' %}
+                    <path class="mark-deficit" transform="translate({{ g.center }} {{ chart.dot_y }})" d="M0 8 L8 -6 L-8 -6 Z"/>
+                  {% else %}
+                    <circle class="dot-{{ g.verdict }}" cx="{{ g.center }}" cy="{{ chart.dot_y }}" r="6"/>
+                  {% endif %}
                   <text class="month-label" x="{{ g.center }}" y="{{ chart.label_y }}" text-anchor="middle">{{ g.label }}</text>
                 </g>
               {% endfor %}

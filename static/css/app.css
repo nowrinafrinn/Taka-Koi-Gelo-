@@ -512,6 +512,10 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--da
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .dot-surplus { background: var(--note); }
 .dot-deficit { background: var(--danger); }
+.legend-heading { font-weight: 700; color: var(--ink); }
+.shape { font-size: 0.8rem; line-height: 1; }
+.shape-surplus { color: var(--note); }
+.shape-deficit { color: var(--danger); }
 .dot-no_income { background: transparent; box-shadow: inset 0 0 0 2px var(--ink-muted); }
 .marker-sample { color: var(--danger); font-weight: 800; }
 
@@ -532,8 +536,8 @@ input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--da
 .bar-chart .year-label { fill: var(--ink-muted); font: 500 15px var(--font-body); }
 .bar-chart .bar-income { fill: var(--note); }
 .bar-chart .bar-expense { fill: var(--spend); }
-.bar-chart circle.dot-surplus { fill: var(--note); }
-.bar-chart circle.dot-deficit { fill: var(--danger); }
+.bar-chart .mark-surplus { fill: var(--note); }
+.bar-chart .mark-deficit { fill: var(--danger); }
 .bar-chart circle.dot-no_income { fill: none; stroke: var(--ink-muted); stroke-width: 2.5; }
 .bar-chart circle.dot-even, .bar-chart circle.dot-empty { fill: var(--line); }
 .bar-chart circle.dot-future { fill: none; }
@@ -691,6 +695,8 @@ a.calendar-cell:hover { box-shadow: inset 0 0 0 2px var(--note); }
 .goal-figures { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; margin-bottom: var(--space-2); }
 .goal-figures strong { font-size: 1.35rem; font-family: var(--font-display); }
 .goal-meta { margin: var(--space-2) 0 0; }
+.goal-actions { margin-top: var(--space-4); }
+#add { scroll-margin-top: 96px; }   /* clear the sticky header when jumped to */
 .goal-card.is-complete .bar > span { background: var(--coin); }
 .stacked-form > div:not(.form-buttons) { margin-bottom: var(--space-3); }
 .stacked-form label { display: block; font-weight: 600; margin-bottom: var(--space-1); }
